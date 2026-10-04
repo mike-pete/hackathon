@@ -98,6 +98,7 @@ type Actions = {
   openBoardJob: (boardId: string) => void;
   removeWorkspace: (id: string) => void;
   setActiveId: (id: string) => void;
+  setWorkspaceTabName: (id: string, name: string | null) => void;
   setJob: (patch: Partial<JobTarget>) => void;
   setIntent: (intent: string) => void;
   // flow ui
@@ -314,6 +315,13 @@ export const useAgentStore = create<State & Actions>((set, get) => {
       }),
 
     setActiveId: (id) => set({ activeId: id, flowOpen: false, selectedNode: null }),
+
+    setWorkspaceTabName: (id, name) =>
+      set((s) => ({
+        workspaces: s.workspaces.map((w) =>
+          w.id === id ? { ...w, tabName: name || undefined } : w,
+        ),
+      })),
 
     setJob: (patchObj) =>
       set((s) => ({

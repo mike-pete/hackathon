@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useActiveWorkspace, useAgentStore } from "@/lib/store";
+import { useAgentStore } from "@/lib/store";
 import { Badge, Dot, type Tone } from "./ui";
 
 export function TopBar() {
@@ -9,7 +9,6 @@ export function TopBar() {
   const refreshProviders = useAgentStore((s) => s.refreshProviders);
   const hydrateSample = useAgentStore((s) => s.hydrateSample);
   const clearAll = useAgentStore((s) => s.clearAll);
-  const workspace = useActiveWorkspace();
 
   useEffect(() => {
     refreshProviders();
@@ -20,21 +19,6 @@ export function TopBar() {
 
   return (
     <header className="z-20 flex flex-wrap items-center gap-3 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-black">
-      <div className="min-w-0">
-        <div className="leading-tight">
-          <div className="flex items-center gap-2">
-            <h1 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-              Tailoring workspace
-            </h1>
-          </div>
-          <p className="max-w-[22rem] truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-            {workspace?.job.title
-              ? `${workspace.job.title}${workspace.job.company ? ` · ${workspace.job.company}` : ""}`
-              : "Choose a target role to begin"}
-          </p>
-        </div>
-      </div>
-
       <div className="ml-auto flex flex-wrap items-center gap-2">
         <Badge tone={jevTone}>
           <Dot tone={jevTone} />
