@@ -28,7 +28,7 @@ export default function JobsPage() {
         maxSize="480px"
         className="overflow-y-auto no-scrollbar"
       >
-        <aside className="h-full border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <aside className="h-full">
         <ul className="flex flex-col gap-2 p-3">
           {jobEntries.map(([id, job]) => {
             const isActive = id === selectedId;
@@ -58,7 +58,7 @@ export default function JobsPage() {
         </aside>
       </Panel>
 
-      <Separator className="w-px bg-zinc-200 transition-colors hover:bg-blue-500 data-[separator=active]:bg-blue-500 data-[separator=focus]:bg-blue-500 dark:bg-zinc-800" />
+      <Separator className="w-px bg-zinc-200 dark:bg-zinc-800" />
 
       {/* Main detail panel */}
       <Panel className="overflow-y-auto">
