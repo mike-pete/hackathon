@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PDFViewer, pdf } from "@react-pdf/renderer";
 import { getDocumentProxy } from "unpdf";
 import Resume from "./Resume";
-import { useResumeStore } from "./resume-store";
+import { buildResumeData, useResumeStore } from "./resume-store";
 
 export default function ResumePreview() {
-  const resume = useResumeStore((s) => s.resume);
+  const experiences = useResumeStore((s) => s.experiences);
+  const resume = useMemo(() => buildResumeData(experiences), [experiences]);
   const [pages, setPages] = useState<number | null>(null);
 
   // Render the resume to a blob and read its page count via pdf.js (unpdf).
