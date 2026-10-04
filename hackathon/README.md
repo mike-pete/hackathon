@@ -184,3 +184,42 @@ See `.env.example`. Everything is optional; the app degrades gracefully.
   mail is sent; `cover_letter` is produced inside the generation step rather than
   as its own routed capability; Exa research falls back to the model's knowledge
   when no key is present.
+
+## Screenshots
+
+The document workspace: global header, app sidebar, job tabs, contents rail and
+the markdown document column.
+
+![Workspace](docs/screenshots/01-workspace.png)
+
+Big CV upload and parsed evidence bullets.
+
+![Big CV](docs/screenshots/02-big-cv-upload.png)
+
+Target job (from the shared job board) and intent.
+
+![Target job](docs/screenshots/03-target-job.png)
+
+The pipeline node graph with live per-node state.
+
+![Pipeline](docs/screenshots/04-pipeline-flow.png)
+
+Expanded pipeline canvas with the right-hand tour stepper.
+
+![Flow tour](docs/screenshots/07-flow-tour.png)
+
+Tailored CV rendered as markdown, then the quality assessment.
+
+![Tailored CV](docs/screenshots/05-tailored-cv.png)
+
+![Quality](docs/screenshots/06-quality.png)
+
+The exported PDF resume.
+
+![Resume PDF](docs/screenshots/10-resume-pdf.png)
+
+The job board and rules pages.
+
+![Job board](docs/screenshots/08-jobs-board.png)
+
+![Rules](docs/screenshots/09-rules.png)
