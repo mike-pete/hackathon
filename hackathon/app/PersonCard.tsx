@@ -1,7 +1,8 @@
 import Image from "next/image";
+import type { ReactNode } from "react";
 import type { PersonProfile } from "./actions";
 
-export default function PersonCard({ person }: { person: PersonProfile }) {
+export default function PersonCard({ person, action }: { person: PersonProfile; action?: ReactNode }) {
   return (
     <div className="flex gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <Image
@@ -12,7 +13,7 @@ export default function PersonCard({ person }: { person: PersonProfile }) {
         className="h-14 w-14 shrink-0 rounded-full object-cover"
         unoptimized
       />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="font-semibold leading-snug">{person.name}</p>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           {person.jobTitle}
@@ -39,6 +40,7 @@ export default function PersonCard({ person }: { person: PersonProfile }) {
           {person.description}
         </p>
       </div>
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
