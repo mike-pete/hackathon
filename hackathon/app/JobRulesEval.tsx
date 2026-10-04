@@ -13,6 +13,27 @@ type RuleResult = {
   probability: number;
 };
 
+// Card/text tone scaled by score: red below 50%, a lighter amber in the 50–70%
+// "maybe" band, and green at 70%+.
+function fitTone(pct: number) {
+  if (pct >= 70) {
+    return {
+      card: "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30",
+      text: "text-emerald-700 dark:text-emerald-400",
+    };
+  }
+  if (pct >= 50) {
+    return {
+      card: "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30",
+      text: "text-amber-700 dark:text-amber-400",
+    };
+  }
+  return {
+    card: "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30",
+    text: "text-red-700 dark:text-red-400",
+  };
+}
+
 // Tracks whether the persisted rules store has rehydrated from localStorage, so
 // we don't evaluate against an empty list on the first client render.
 function useHydrated() {
@@ -90,30 +111,28 @@ export default function JobRulesEval({ jobId }: { jobId: number }) {
         <p className="mt-3 text-sm text-zinc-500">Evaluating rules…</p>
       ) : (
         <ul className="mt-4 flex flex-col gap-2">
-          {results?.map((result) => (
-            <li
-              key={result.id}
-              className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950"
-            >
-              <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                  result.pass
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
-                    : "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400"
-                }`}
+          {results?.map((result) => {
+            const pct = Math.round(result.probability * 100);
+            const tone = fitTone(pct);
+            return (
+              <li
+                key={result.id}
+                className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${tone.card}`}
               >
-                {result.pass ? (
-                  <IconCheck size={15} stroke={2.5} />
-                ) : (
-                  <IconX size={15} stroke={2.5} />
-                )}
-              </span>
-              <span className="flex-1 text-sm font-medium">{result.key}</span>
-              <span className="text-xs tabular-nums text-zinc-500">
-                {Math.round(result.probability * 100)}% fit
-              </span>
-            </li>
-          ))}
+                <span className={`shrink-0 ${tone.text}`}>
+                  {result.pass ? (
+                    <IconCheck size={16} stroke={2.5} />
+                  ) : (
+                    <IconX size={16} stroke={2.5} />
+                  )}
+                </span>
+                <span className="flex-1 text-sm font-medium">{result.key}</span>
+                <span className={`text-xs font-medium tabular-nums ${tone.text}`}>
+                  {pct}% fit
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
