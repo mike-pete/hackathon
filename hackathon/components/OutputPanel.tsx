@@ -144,9 +144,9 @@ export function OutputPanel() {
                   Skills
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {cv.skills.map((s) => (
+                  {cv.skills.map((s, i) => (
                     <span
-                      key={s}
+                      key={`${s}-${i}`}
                       className="rounded-md bg-emerald-400/10 px-2 py-0.5 text-[11px] text-emerald-300 ring-1 ring-inset ring-emerald-400/15"
                     >
                       {s}
@@ -174,9 +174,9 @@ export function OutputPanel() {
                             ← {b.evidenceId}
                           </span>
                         )}
-                        {b.keywords.slice(0, 4).map((k) => (
+                        {b.keywords.slice(0, 4).map((k, ki) => (
                           <span
-                            key={k}
+                            key={`${k}-${ki}`}
                             className="rounded bg-white/5 px-1.5 py-px text-[10px] text-zinc-400"
                           >
                             {k}
@@ -251,9 +251,9 @@ export function OutputPanel() {
                   Matched ({assessment.matchedKeywords.length})
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {assessment.matchedKeywords.map((k) => (
+                  {assessment.matchedKeywords.map((k, i) => (
                     <span
-                      key={k}
+                      key={`${k}-${i}`}
                       className="rounded bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300"
                     >
                       {k}
@@ -266,9 +266,9 @@ export function OutputPanel() {
                   Missing ({assessment.missingKeywords.length})
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {assessment.missingKeywords.map((k) => (
+                  {assessment.missingKeywords.map((k, i) => (
                     <span
-                      key={k}
+                      key={`${k}-${i}`}
                       className="rounded bg-rose-400/10 px-1.5 py-0.5 text-[10px] text-rose-300"
                     >
                       {k}

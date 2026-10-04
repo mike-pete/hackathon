@@ -68,19 +68,32 @@ pretending it was a confident choice.
 
 ## LLM
 
-`lib/llm.ts` auto-detects, in order:
+`lib/llm.ts` is an OpenAI-compatible client with a failover chain. The first
+configured and reachable provider wins, and it falls through on any error:
 
-1. **LM Studio** at `http://127.0.0.1:1234/v1` (no key, fully offline).
-2. **OpenCode Zen** via `OPENCODE_API_KEY`.
-3. **Deterministic mock** so the demo never dead-ends.
+1. **Neon AI Gateway** via `NEON_AI_GATEWAY_BASE_URL` + `NEON_AI_GATEWAY_TOKEN`
+   (base `${NEON_AI_GATEWAY_BASE_URL}/v1`, default model `gpt-5-mini`).
+2. **Vercel AI Gateway** via `AI_GATEWAY_API_KEY`
+   (base `https://ai-gateway.vercel.sh/v1`, default model `anthropic/claude-sonnet-5`).
+3. **Any OpenAI-compatible endpoint** via `LLM_BASE_URL` + `LLM_API_KEY` + `LLM_MODEL`.
+4. **Local LM Studio** at `http://127.0.0.1:1234/v1`, auto-detected, never required.
+   Set `LLM_LOCAL=0` to disable.
+5. **OpenCode Zen** via `OPENCODE_API_KEY`.
+6. **Deterministic mock** so the demo never dead-ends.
+
+A local model is a convenience, not a requirement. With a gateway key set, the
+app runs with no local inference at all.
 
 ## Run it
 
 ```bash
 npm install
 
-# optional: load a local model (LM Studio + lms CLI)
-lms load qwen3-30b-a3b-abliterated --gpu max --ttl 7200 -y
+# LLM: point at a gateway (recommended). Copy and fill in Neon or Vercel keys.
+cp .env.example .env.local
+
+# Optional: a local model as a fallback with no keys at all.
+# lms load qwen3-30b-a3b-abliterated --gpu max --ttl 7200 -y
 
 # optional: serve JevRouter for the fast HTTP route
 npm run jev
