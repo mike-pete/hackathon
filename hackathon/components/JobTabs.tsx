@@ -4,6 +4,7 @@ import { useState } from "react";
 import jobs from "@/app/jobs";
 import { useAgentStore } from "@/lib/store";
 import type { PipelineStatus } from "@/lib/types";
+import { useDragReorder } from "./Reorder";
 
 const boardJobs = Object.entries(jobs).map(([id, job]) => ({ id, ...job }));
 
@@ -21,6 +22,19 @@ function formatComp([min, max]: [number, number]) {
   return `${k(min)} - ${k(max)}`;
 }
 
+function Grip() {
+  return (
+    <svg viewBox="0 0 10 16" className="size-3" fill="currentColor">
+      <circle cx="3" cy="3" r="1" />
+      <circle cx="7" cy="3" r="1" />
+      <circle cx="3" cy="8" r="1" />
+      <circle cx="7" cy="8" r="1" />
+      <circle cx="3" cy="13" r="1" />
+      <circle cx="7" cy="13" r="1" />
+    </svg>
+  );
+}
+
 export function JobTabs() {
   const workspaces = useAgentStore((s) => s.workspaces);
   const activeId = useAgentStore((s) => s.activeId);
@@ -29,7 +43,14 @@ export function JobTabs() {
   const addWorkspace = useAgentStore((s) => s.addWorkspace);
   const openBoardJob = useAgentStore((s) => s.openBoardJob);
   const runPipeline = useAgentStore((s) => s.runPipeline);
+  const reorderWorkspaces = useAgentStore((s) => s.reorderWorkspaces);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const { containerRef, dragIndex, overIndex, onPointerDown } = useDragReorder({
+    orientation: "horizontal",
+    count: workspaces.length,
+    onReorder: reorderWorkspaces,
+  });
 
   const active = workspaces.find((w) => w.id === activeId);
   const busy =
@@ -39,19 +60,30 @@ export function JobTabs() {
 
   return (
     <div className="flex items-center gap-2 border-b border-zinc-200 bg-white px-3 dark:border-zinc-800 dark:bg-black">
-      <div className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto">
-        {workspaces.map((w) => {
+      <div ref={containerRef} className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto">
+        {workspaces.map((w, i) => {
           const isActive = w.id === activeId;
           const label = w.job.title || "Untitled job";
+          const isDropTarget = overIndex === i && dragIndex !== i;
           return (
             <div
               key={w.id}
-              className={`group relative flex shrink-0 items-center gap-2 rounded-t-lg border-b-2 px-3 py-2.5 transition ${
+              className={`group relative flex shrink-0 items-center gap-1.5 rounded-t-lg border-b-2 px-2.5 py-2.5 transition ${
                 isActive
                   ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40"
                   : "border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900"
+              } ${dragIndex === i ? "opacity-40" : ""} ${
+                isDropTarget ? "ring-2 ring-blue-400/70 ring-inset" : ""
               }`}
             >
+              <button
+                onPointerDown={onPointerDown(i)}
+                aria-label="Drag to reorder tab"
+                title="Drag to reorder"
+                className="shrink-0 cursor-grab touch-none rounded p-0.5 text-zinc-300 transition hover:bg-zinc-100 hover:text-zinc-500 active:cursor-grabbing dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-400"
+              >
+                <Grip />
+              </button>
               <button
                 onClick={() => setActiveId(w.id)}
                 className="flex max-w-[15rem] items-center gap-2 text-left"

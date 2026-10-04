@@ -1,6 +1,6 @@
 "use client";
 
-import { createElement, useMemo, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jobs from "@/app/jobs";
 import { CAPABILITY_BY_ID } from "@/lib/capabilities";
 import { activeNodeKey, FLOW_NODES, nodeState } from "@/lib/pipeline";
@@ -9,6 +9,7 @@ import { useActiveWorkspace, useAgentStore } from "@/lib/store";
 import type { JevStep } from "@/lib/types";
 import { FlowDiagram } from "./FlowDiagram";
 import { Markdown } from "./Markdown";
+import { move, ReorderContext, useDragReorder, useReorderContext } from "./Reorder";
 import { Badge, Meter, ScoreRing, type Tone } from "./ui";
 
 const boardJobs = Object.entries(jobs).map(([id, job]) => ({ id, ...job }));
@@ -36,11 +37,30 @@ function SectionHeader({
   title: string;
   actions?: React.ReactNode;
 }) {
+  const dnd = useReorderContext();
+  const pos = dnd?.n ?? n;
   return (
     <div id={id} className="scroll-mt-4">
       <div className="mb-4 flex items-end justify-between gap-3">
         <div className="flex items-baseline gap-3">
-          <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">{n}</span>
+          {dnd && (
+            <button
+              {...dnd.handleProps}
+              aria-label="Drag to reorder"
+              title="Drag to reorder"
+              className="-ml-1 cursor-grab touch-none rounded p-1 text-zinc-300 transition hover:bg-zinc-100 hover:text-zinc-500 active:cursor-grabbing dark:text-zinc-600 dark:hover:bg-zinc-900 dark:hover:text-zinc-400"
+            >
+              <svg viewBox="0 0 10 16" className="size-3.5" fill="currentColor">
+                <circle cx="3" cy="3" r="1.1" />
+                <circle cx="7" cy="3" r="1.1" />
+                <circle cx="3" cy="8" r="1.1" />
+                <circle cx="7" cy="8" r="1.1" />
+                <circle cx="3" cy="13" r="1.1" />
+                <circle cx="7" cy="13" r="1.1" />
+              </svg>
+            </button>
+          )}
+          <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">{pos}</span>
           <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
             {title}
           </h2>
@@ -448,6 +468,7 @@ function CVSection() {
   const ws = useActiveWorkspace();
   const [copied, setCopied] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const markdown = useMemo(() => {
     if (!ws.cv) return "";
@@ -459,31 +480,45 @@ function CVSection() {
     return `# ${ws.cv.headline}\n\n${ws.cv.summary}\n\n**Skills:** ${skills}\n\n## Experience\n\n${bullets}\n${cover}`;
   }, [ws.cv]);
 
-  const downloadPdf = async () => {
-    if (!ws.cv) return;
+  const downloadPdf = useCallback(async () => {
+    const state = useAgentStore.getState();
+    const active = state.workspaces.find((workspace) => workspace.id === state.activeId);
+    if (!active?.cv) return;
     setPdfBusy(true);
+    setPdfError(null);
     try {
       const [{ pdf }, { ResumePdf }] = await Promise.all([
         import("@react-pdf/renderer"),
         import("./ResumePdf"),
       ]);
-      const profile = extractProfile(useAgentStore.getState().rawCV);
-      const element = createElement(ResumePdf, { profile, cv: ws.cv, job: ws.job });
+      const profile = extractProfile(state.rawCV);
+      const element = createElement(ResumePdf, { profile, cv: active.cv, job: active.job });
       const blob = await pdf(
         element as unknown as Parameters<typeof pdf>[0],
       ).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${profile.name.replace(/\s+/g, "_")}_Resume.pdf`;
+      const safeName = profile.name.replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_|_$/g, "");
+      const safeCompany = active.job.company
+        .replace(/[^\p{L}\p{N}]+/gu, "_")
+        .replace(/^_|_$/g, "");
+      a.download = `${safeName || "Resume"}_Resume${safeCompany ? `_${safeCompany}` : ""}.pdf`;
       a.click();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error("PDF export failed", err);
+      setPdfError("The PDF could not be created. Try again after the resume finishes generating.");
     } finally {
       setPdfBusy(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const requestDownload = () => void downloadPdf();
+    window.addEventListener("tailor:download-pdf", requestDownload);
+    return () => window.removeEventListener("tailor:download-pdf", requestDownload);
+  }, [downloadPdf]);
 
   return (
     <section className="border-t border-zinc-200 pt-8 dark:border-zinc-800">
@@ -512,9 +547,15 @@ function CVSection() {
         }
       />
       {ws.cv ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <Markdown>{markdown}</Markdown>
-        </div>
+        <>
+          {pdfError && <p role="alert" className="mb-3 text-xs text-rose-700 dark:text-rose-300">{pdfError}</p>}
+          <p className="mb-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+            The PDF keeps claims tied to Rahul’s resume and adds strong original points when fewer than five fit the role.
+          </p>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
+            <Markdown>{markdown}</Markdown>
+          </div>
+        </>
       ) : (
         <p className="rounded-2xl border border-dashed border-zinc-300 px-4 py-10 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
           Nothing generated yet. Run the agent from the Target job section.
@@ -635,12 +676,36 @@ const LEVEL_STYLE: Record<string, string> = {
 
 function TraceSection() {
   const ws = useActiveWorkspace();
+  const dnd = useReorderContext();
   return (
     <section className="border-t border-zinc-200 pt-8 pb-16 dark:border-zinc-800">
       <details className="group rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">6</span>
+            {dnd && (
+              <button
+                {...dnd.handleProps}
+                aria-label="Drag to reorder"
+                title="Drag to reorder"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="-ml-1 cursor-grab touch-none rounded p-1 text-zinc-300 transition hover:bg-zinc-100 hover:text-zinc-500 active:cursor-grabbing dark:text-zinc-600 dark:hover:bg-zinc-900 dark:hover:text-zinc-400"
+              >
+                <svg viewBox="0 0 10 16" className="size-3.5" fill="currentColor">
+                  <circle cx="3" cy="3" r="1.1" />
+                  <circle cx="7" cy="3" r="1.1" />
+                  <circle cx="3" cy="8" r="1.1" />
+                  <circle cx="7" cy="8" r="1.1" />
+                  <circle cx="3" cy="13" r="1.1" />
+                  <circle cx="7" cy="13" r="1.1" />
+                </svg>
+              </button>
+            )}
+            <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">
+              {dnd?.n ?? 6}
+            </span>
             <span className="text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">Agent trace</span>
           </div>
           <div className="flex items-center gap-3">
@@ -713,16 +778,45 @@ function DocumentHeader() {
 }
 
 export function DocumentView() {
+  const order = useAgentStore((s) => s.sectionOrder);
+  const setSectionOrder = useAgentStore((s) => s.setSectionOrder);
+  const { containerRef, dragIndex, overIndex, onPointerDown } = useDragReorder({
+    orientation: "vertical",
+    count: order.length,
+    onReorder: (from, to) => setSectionOrder(move(order, from, to)),
+  });
+
+  const registry: Record<string, React.ReactNode> = {
+    resume: <ResumeSection />,
+    target: <TargetSection />,
+    pipeline: <PipelineSection />,
+    cv: <CVSection />,
+    quality: <QualitySection />,
+    trace: <TraceSection />,
+  };
+
   return (
     <main className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl px-8 py-10">
         <DocumentHeader />
-        <ResumeSection />
-        <TargetSection />
-        <PipelineSection />
-        <CVSection />
-        <QualitySection />
-        <TraceSection />
+        <div ref={containerRef}>
+          {order.map((id, i) => (
+            <ReorderContext.Provider
+              key={id}
+              value={{ index: i, n: i + 1, handleProps: { onPointerDown: onPointerDown(i) } }}
+            >
+              <div
+                className={`rounded-xl transition ${
+                  dragIndex === i ? "opacity-40" : ""
+                } ${
+                  overIndex === i && dragIndex !== i ? "ring-2 ring-blue-400/70" : ""
+                }`}
+              >
+                {registry[id] ?? null}
+              </div>
+            </ReorderContext.Provider>
+          ))}
+        </div>
       </div>
     </main>
   );

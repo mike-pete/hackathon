@@ -21,6 +21,15 @@ const uid = () =>
 
 const BLANK_JOB: JobTarget = { title: "", company: "", url: "", description: "" };
 
+export const DEFAULT_SECTION_ORDER = [
+  "resume",
+  "target",
+  "pipeline",
+  "cv",
+  "quality",
+  "trace",
+];
+
 function makeWorkspace(job: JobTarget = BLANK_JOB, intent = ""): Workspace {
   return {
     id: uid(),
@@ -65,6 +74,7 @@ type State = {
   activeId: string;
   flowOpen: boolean;
   selectedNode: string | null;
+  sectionOrder: string[];
 };
 
 type Actions = {
@@ -89,6 +99,10 @@ type Actions = {
   // flow ui
   setFlowOpen: (open: boolean) => void;
   selectNode: (key: string | null) => void;
+  // layout
+  setSectionOrder: (order: string[]) => void;
+  reorderWorkspaces: (from: number, to: number) => void;
+  loadPrefs: () => void;
   // pipeline
   runPipeline: () => Promise<void>;
 };
@@ -120,6 +134,7 @@ export const useAgentStore = create<State & Actions>((set, get) => {
     activeId: firstWorkspace.id,
     flowOpen: false,
     selectedNode: null,
+    sectionOrder: DEFAULT_SECTION_ORDER,
 
     hydrateSample: () => {
       import("./sample").then(({ SAMPLE_BIG_CV, SAMPLE_JOB }) => {
@@ -291,6 +306,40 @@ export const useAgentStore = create<State & Actions>((set, get) => {
 
     setFlowOpen: (open) => set({ flowOpen: open, selectedNode: open ? get().selectedNode : null }),
     selectNode: (key) => set({ selectedNode: key }),
+
+    setSectionOrder: (order) => {
+      set({ sectionOrder: order });
+      try {
+        window.localStorage.setItem("tailor.sectionOrder", JSON.stringify(order));
+      } catch {
+        /* ignore */
+      }
+    },
+
+    reorderWorkspaces: (from, to) =>
+      set((s) => {
+        const next = [...s.workspaces];
+        const [item] = next.splice(from, 1);
+        next.splice(to, 0, item);
+        return { workspaces: next };
+      }),
+
+    loadPrefs: () => {
+      try {
+        const raw = window.localStorage.getItem("tailor.sectionOrder");
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as string[];
+        if (
+          Array.isArray(parsed) &&
+          parsed.length === DEFAULT_SECTION_ORDER.length &&
+          DEFAULT_SECTION_ORDER.every((id) => parsed.includes(id))
+        ) {
+          set({ sectionOrder: parsed });
+        }
+      } catch {
+        /* ignore */
+      }
+    },
 
     runPipeline: async () => {
       const state = get();
