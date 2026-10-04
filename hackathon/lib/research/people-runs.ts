@@ -82,12 +82,16 @@ export async function ensurePeopleRun(job: Job, known?: Map<string, AgentRun>): 
 }
 
 // Makes sure every job has a run at Exa. Cheap: one listing plus one create per missing job.
+// Sequential, because Exa rate-limits requests (10/s) and creates are quick anyway.
 export async function startAllPeopleRuns(jobs: Job[]) {
   const known = await existingRunsByJob();
-  const results = await Promise.allSettled(jobs.map((job) => ensurePeopleRun(job, known)));
-  results.forEach((r, i) => {
-    if (r.status === "rejected") console.error(`[research] could not start people run for ${jobs[i].company}:`, r.reason);
-  });
+  for (const job of jobs) {
+    try {
+      await ensurePeopleRun(job, known);
+    } catch (err) {
+      console.error(`[research] could not start people run for ${job.company}:`, err);
+    }
+  }
 }
 
 export async function getPeopleStatus(job: Job): Promise<PeopleStatus> {
