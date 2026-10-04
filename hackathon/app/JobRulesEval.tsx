@@ -8,6 +8,7 @@ import { useRulesStore } from "./rules-store";
 type RuleResult = {
   id: string;
   key: string;
+  threshold: number;
   pass: boolean;
   probability: number;
 };
