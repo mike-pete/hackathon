@@ -83,10 +83,6 @@ export default function JobsPage() {
             </p>
             <JobSummary key={`summary-${selectedId}`} jobId={Number(selectedId)} />
 
-            <div className="mt-8 whitespace-pre-line text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">
-              {selected.description.trim()}
-            </div>
-
             <JobResearch key={selectedId} jobId={Number(selectedId)} company={selected.company} />
           </div>
         ) : (
