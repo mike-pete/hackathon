@@ -2,12 +2,9 @@
 
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jobs from "@/app/jobs";
-import { CAPABILITY_BY_ID } from "@/lib/capabilities";
 import { activeNodeKey, FLOW_NODES, nodeState } from "@/lib/pipeline";
 import { extractProfile } from "@/lib/resume-profile";
 import { useActiveWorkspace, useAgentStore } from "@/lib/store";
-import type { JevStep } from "@/lib/types";
-import { FlowDiagram } from "./FlowDiagram";
 import { Markdown } from "./Markdown";
 import { move, ReorderContext, useDragReorder, useReorderContext } from "./Reorder";
 import { Badge, Meter, ScoreRing, type Tone } from "./ui";
@@ -346,44 +343,6 @@ function TargetSection() {
 
 /* ---------------------------------------------------------------- Pipeline */
 
-function StepCandidates({ step }: { step: JevStep }) {
-  const ranked = [...step.candidates].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-2.5 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="mb-1.5 flex items-center gap-2">
-        <span className="grid size-5 place-items-center rounded-md bg-violet-50 font-mono text-[10px] text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
-          {step.step}
-        </span>
-        <Badge tone={step.status === "selected" ? "emerald" : "amber"}>{step.status}</Badge>
-      </div>
-      <div className="space-y-1">
-        {ranked.map((c) => {
-          const cap = CAPABILITY_BY_ID.get(c.id);
-          const pct =
-            c.probability != null ? Math.round(Math.max(0, Math.min(1, c.probability)) * 100) : null;
-          return (
-            <div key={c.id} className={`flex items-center gap-2 ${c.filtered ? "opacity-50" : ""}`}>
-              <span className="w-4 shrink-0 font-mono text-[10px] text-zinc-400 dark:text-zinc-600">
-                {c.rank ?? "-"}
-              </span>
-              <span className="w-28 shrink-0 truncate text-[11px] text-zinc-700 dark:text-zinc-300">
-                {cap?.name ?? c.id}
-              </span>
-              <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                <div className="h-full rounded-full bg-blue-500" style={{ width: `${pct ?? 3}%` }} />
-              </div>
-              <span className="w-9 shrink-0 text-right font-mono text-[10px] text-zinc-400 dark:text-zinc-600">
-                {pct != null ? `${pct}%` : "n/a"}
-              </span>
-              {c.requiresConfirmation && <span className="text-[10px] text-amber-600 dark:text-amber-400">🔒</span>}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function PipelineSection() {
   const ws = useActiveWorkspace();
   const bullets = useAgentStore((s) => s.bullets);
@@ -395,6 +354,21 @@ function PipelineSection() {
   const selected = selectedNode ?? activeNodeKey(ws);
   const node = FLOW_NODES.find((n) => n.key === selected)!;
   const st = nodeState(selected, ws, bulletCount);
+  const compactTitles: Record<string, string> = {
+    bullets: "Evidence",
+    jev: "Plan",
+    research: "Research",
+    generate: "Tailor",
+    assess: "Quality",
+    output: "Export",
+  };
+  const statusLabel: Record<string, string> = {
+    done: "Complete",
+    running: "In progress",
+    skipped: "Skipped",
+    idle: "Waiting",
+    error: "Needs attention",
+  };
 
   return (
     <section className="border-t border-zinc-200 pt-8 dark:border-zinc-800">
@@ -409,53 +383,75 @@ function PipelineSection() {
         }
       />
 
-      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
-          <div className="flex items-center gap-2.5">
-            <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 ring-1 ring-inset ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-800">
-              Flow
-            </span>
-            <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">
-              Tailoring pipeline
-            </span>
-          </div>
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{FLOW_NODES.length} nodes</span>
+      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="overflow-x-auto px-4 py-3.5">
+          <nav aria-label="Pipeline steps" className="flex min-w-[34rem] items-start">
+            {FLOW_NODES.map((step, i) => {
+              const state = nodeState(step.key, ws, bulletCount);
+              const isSelected = step.key === selected;
+              const done = state.status === "done";
+              return (
+                <div key={step.key} className="flex min-w-0 flex-1 items-start">
+                  <button
+                    type="button"
+                    onClick={() => selectNode(step.key)}
+                    aria-current={isSelected ? "step" : undefined}
+                    aria-label={`${step.title}: ${statusLabel[state.status]}`}
+                    className="group flex w-[4.75rem] shrink-0 flex-col items-center gap-1.5 rounded-lg px-1 py-0.5 text-center outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  >
+                    <span
+                      className={`grid size-6 place-items-center rounded-full border text-[10px] font-semibold transition ${
+                        isSelected
+                          ? "border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                          : done
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+                            : state.status === "error"
+                              ? "border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300"
+                              : "border-zinc-200 bg-zinc-50 text-zinc-400 group-hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500"
+                      }`}
+                    >
+                      {state.status === "running" ? (
+                        <span className="size-1.5 animate-pulse rounded-full bg-blue-200" />
+                      ) : done ? "✓" : i + 1}
+                    </span>
+                    <span className={`whitespace-nowrap text-[10px] font-medium ${
+                      isSelected ? "text-blue-700 dark:text-blue-300" : "text-zinc-500 dark:text-zinc-400"
+                    }`}>
+                      {compactTitles[step.key]}
+                    </span>
+                    {(step.key === "research" || step.key === "jev") && (
+                      <span className="-mt-1 text-[9px] text-zinc-400 dark:text-zinc-600">
+                        {step.key === "research" ? "optional" : "routes"}
+                      </span>
+                    )}
+                  </button>
+                  {i < FLOW_NODES.length - 1 && (
+                    <span
+                      aria-hidden="true"
+                      className={`mt-3 h-px min-w-2 flex-1 ${done ? "bg-emerald-300 dark:bg-emerald-900" : "bg-zinc-200 dark:bg-zinc-800"}`}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </nav>
         </div>
-        <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="flex justify-center">
-            <FlowDiagram
-              ws={ws}
-              bulletCount={bulletCount}
-              selected={selected}
-              onSelect={selectNode}
-              size="embed"
-            />
-          </div>
-          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-            <div className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Node detail
+        <div className="flex items-start gap-3 border-t border-zinc-100 bg-zinc-50/70 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/40">
+          <span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${
+            st.status === "done" ? "bg-emerald-500" : st.status === "error" ? "bg-rose-500" : st.status === "running" ? "animate-pulse bg-blue-500" : "bg-zinc-300 dark:bg-zinc-600"
+          }`} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-100">{node.title}</span>
+              <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{statusLabel[st.status]}</span>
             </div>
-            <div className="mt-1 text-[14px] font-semibold text-zinc-900 dark:text-zinc-100">
-              {node.title}
-            </div>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
-              {node.description}
+            <p className="mt-0.5 line-clamp-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+              {st.lines[0] ?? node.description}
             </p>
-            <ul className="mt-3 space-y-1 border-l border-zinc-200 pl-3 dark:border-zinc-700">
-              {st.lines.map((line, i) => (
-                <li key={i} className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
-                  {line}
-                </li>
-              ))}
-            </ul>
-            {selected === "jev" && ws.jev && (
-              <div className="mt-3 space-y-2">
-                {ws.jev.steps.slice(0, 3).map((s) => (
-                  <StepCandidates key={s.step} step={s} />
-                ))}
-              </div>
-            )}
           </div>
+          <span className="hidden shrink-0 text-[10px] text-zinc-400 sm:inline dark:text-zinc-500">
+            {FLOW_NODES.length} steps
+          </span>
         </div>
       </div>
     </section>
