@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { AppSidebar } from "@/components/AppSidebar";
 import "./globals.css";
 import Header from "./Header";
 
@@ -28,10 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex h-dvh flex-col overflow-hidden">
         <Header />
-        <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col md:flex-row">
-          <AppSidebar />
-          <div className="flex min-h-0 min-w-0 flex-1">{children}</div>
-        </div>
+        <div className="flex min-h-0 min-w-0 flex-1">{children}</div>
       </body>
     </html>
   );
