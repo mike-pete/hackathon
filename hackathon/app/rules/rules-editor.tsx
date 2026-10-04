@@ -25,18 +25,19 @@ export default function RulesEditor() {
   if (!hydrated) return null;
 
   return (
-    <div className="mt-6 flex flex-col gap-4">
+    <div className="mt-6">
       {rules.length === 0 && (
         <p className="text-sm text-zinc-500">
           No rules yet. Add one to describe what you care about in a job.
         </p>
       )}
 
-      {rules.map((rule) => (
-        <div
-          key={rule.id}
-          className="relative rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
-        >
+      <div className="gap-4 sm:columns-2 lg:columns-3">
+        {rules.map((rule) => (
+          <div
+            key={rule.id}
+            className="relative mb-4 break-inside-avoid rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
+          >
           <button
             type="button"
             onClick={() => removeRule(rule.id)}
@@ -92,9 +93,10 @@ export default function RulesEditor() {
             <span>% fit or higher</span>
           </div>
         </div>
-      ))}
+        ))}
+      </div>
 
-      <div>
+      <div className="mt-4">
         <button
           type="button"
           onClick={addRule}

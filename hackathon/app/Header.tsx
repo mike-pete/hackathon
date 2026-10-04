@@ -22,7 +22,7 @@ export default function Header() {
   return (
     <header className="flex shrink-0 items-center gap-1 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
       <Link href="/jobs" className="mr-3 font-semibold tracking-tight">
-        Hirehand
+        Tailor
       </Link>
       <nav className="flex items-center gap-1">
         {links.map(({ href, label }) => {
