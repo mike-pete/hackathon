@@ -20,12 +20,10 @@ export function FlowOverlay() {
     FLOW_NODES.findIndex((n) => n.key === selected),
   );
 
-  // Auto-focus the node the pipeline is on when opening.
   useEffect(() => {
     if (flowOpen && !selectedNode) selectNode(activeNodeKey(ws));
   }, [flowOpen, selectedNode, ws, selectNode]);
 
-  // Escape closes, arrows step through the tour.
   useEffect(() => {
     if (!flowOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -44,19 +42,21 @@ export function FlowOverlay() {
     selectNode(FLOW_NODES[Math.min(Math.max(idx + delta, 0), FLOW_NODES.length - 1)].key);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#05070c]/95 backdrop-blur-xl">
-      <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+    <div className="fixed inset-0 z-50 flex flex-col bg-white/95 backdrop-blur-xl dark:bg-black/95">
+      <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <div className="flex items-center gap-2.5">
-          <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 ring-1 ring-inset ring-white/10">
+          <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 ring-1 ring-inset ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-800">
             Flow
           </span>
-          <h2 className="text-sm font-semibold text-zinc-100">Tailoring pipeline</h2>
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            Tailoring pipeline
+          </h2>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[11px] text-zinc-500">{FLOW_NODES.length} nodes</span>
+          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{FLOW_NODES.length} nodes</span>
           <button
             onClick={() => setFlowOpen(false)}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             Close
           </button>
@@ -74,12 +74,12 @@ export function FlowOverlay() {
           />
         </div>
 
-        <aside className="flex w-[26rem] shrink-0 flex-col border-l border-white/10">
-          <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+        <aside className="flex w-[26rem] shrink-0 flex-col border-l border-zinc-200 dark:border-zinc-800">
+          <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Tour
             </span>
-            <span className="text-[11px] text-zinc-500">Tailoring pipeline</span>
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Tailoring pipeline</span>
           </div>
 
           <ol className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -89,38 +89,35 @@ export function FlowOverlay() {
               return (
                 <li key={n.key} className="relative flex gap-3 pb-6 last:pb-0">
                   {i < FLOW_NODES.length - 1 && (
-                    <span className="absolute left-[13px] top-7 h-full w-px bg-white/10" />
+                    <span className="absolute left-[13px] top-7 h-full w-px bg-zinc-200 dark:bg-zinc-800" />
                   )}
                   <span
                     className={`z-10 grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold ring-1 ring-inset ${
                       isActive
-                        ? "bg-sky-400/20 text-sky-200 ring-sky-400/40"
-                        : "bg-white/5 text-zinc-500 ring-white/10"
+                        ? "bg-blue-600 text-white ring-blue-600"
+                        : "bg-zinc-100 text-zinc-500 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-800"
                     }`}
                   >
                     {i + 1}
                   </span>
-                  <button
-                    onClick={() => selectNode(n.key)}
-                    className="min-w-0 flex-1 text-left"
-                  >
-                    <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+                  <button onClick={() => selectNode(n.key)} className="min-w-0 flex-1 text-left">
+                    <div className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                       Step {i + 1} of {FLOW_NODES.length}
                     </div>
                     <div
                       className={`text-[15px] font-semibold ${
-                        isActive ? "text-sky-200" : "text-zinc-200"
+                        isActive ? "text-blue-600 dark:text-blue-400" : "text-zinc-900 dark:text-zinc-100"
                       }`}
                     >
                       {n.title}
                     </div>
-                    <p className="mt-1 text-[12px] leading-relaxed text-zinc-400">
+                    <p className="mt-1 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
                       {n.description}
                     </p>
                     {st.lines.length > 0 && (
-                      <ul className="mt-2 space-y-0.5 border-l border-white/10 pl-3">
+                      <ul className="mt-2 space-y-0.5 border-l border-zinc-200 pl-3 dark:border-zinc-800">
                         {st.lines.map((line, li) => (
-                          <li key={li} className="text-[11px] leading-relaxed text-zinc-500">
+                          <li key={li} className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-500">
                             {line}
                           </li>
                         ))}
@@ -132,10 +129,10 @@ export function FlowOverlay() {
             })}
           </ol>
 
-          <div className="border-t border-white/10 px-5 py-3">
+          <div className="border-t border-zinc-200 px-5 py-3 dark:border-zinc-800">
             <button
               onClick={() => selectNode(FLOW_NODES[0].key)}
-              className="flex w-full items-center justify-between rounded-xl border border-dashed border-white/15 px-3 py-2 text-[12px] text-zinc-400 transition hover:border-white/30 hover:text-zinc-200"
+              className="flex w-full items-center justify-between rounded-xl border border-dashed border-zinc-300 px-3 py-2 text-[12px] text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
             >
               <span>End of tour</span>
               <span>↑ Back to step 1</span>
@@ -144,25 +141,25 @@ export function FlowOverlay() {
         </aside>
       </div>
 
-      <footer className="flex items-center justify-between border-t border-white/10 px-4 py-2.5">
-        <span className="text-[11px] text-zinc-600">
+      <footer className="flex items-center justify-between border-t border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
+        <span className="text-[11px] text-zinc-400 dark:text-zinc-600">
           Select a node to explore its detail
         </span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => step(-1)}
             disabled={idx <= 0}
-            className="grid size-7 place-items-center rounded-lg border border-white/10 bg-white/5 text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
+            className="grid size-7 place-items-center rounded-lg border border-zinc-300 bg-white text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             ↑
           </button>
-          <span className="font-mono text-[11px] text-zinc-400">
+          <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
             {idx + 1}/{FLOW_NODES.length}
           </span>
           <button
             onClick={() => step(1)}
             disabled={idx >= FLOW_NODES.length - 1}
-            className="grid size-7 place-items-center rounded-lg border border-white/10 bg-white/5 text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
+            className="grid size-7 place-items-center rounded-lg border border-zinc-300 bg-white text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             ↓
           </button>

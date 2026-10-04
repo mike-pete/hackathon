@@ -115,7 +115,7 @@ npm install
 cp .env.example .env.local
 
 # Optional: a local model as a fallback with no keys at all.
-# lms load qwen3-30b-a3b-abliterated --gpu max --ttl 7200 -y
+# lms load qwen3-30b-a3b --gpu max --ttl 7200 -y
 
 # optional: serve JevRouter for the fast HTTP route
 npm run jev

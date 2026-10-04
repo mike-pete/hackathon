@@ -17,6 +17,13 @@ function formatComp([min, max]: [number, number]) {
   return `${k(min)} - ${k(max)}`;
 }
 
+const btnSecondary =
+  "rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+const btnPrimary =
+  "rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60";
+const field =
+  "w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500";
+
 function SectionHeader({
   id,
   n,
@@ -32,8 +39,10 @@ function SectionHeader({
     <div id={id} className="scroll-mt-4">
       <div className="mb-4 flex items-end justify-between gap-3">
         <div className="flex items-baseline gap-3">
-          <span className="font-mono text-[12px] text-zinc-600">{n}</span>
-          <h2 className="text-xl font-semibold tracking-tight text-zinc-100">{title}</h2>
+          <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">{n}</span>
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            {title}
+          </h2>
         </div>
         {actions}
       </div>
@@ -71,7 +80,7 @@ function ResumeSection() {
   };
 
   return (
-    <section className="border-t border-white/10 pt-8">
+    <section className="border-t border-zinc-200 pt-8 dark:border-zinc-800">
       <SectionHeader
         id="resume"
         n={1}
@@ -88,17 +97,10 @@ function ResumeSection() {
               className="hidden"
               onChange={(e) => handleFile(e.target.files?.[0])}
             />
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={busy}
-              className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:bg-emerald-400/20 disabled:opacity-50"
-            >
+            <button onClick={() => fileRef.current?.click()} disabled={busy} className={btnPrimary}>
               {busy ? "Parsing…" : "Upload resume"}
             </button>
-            <button
-              onClick={parseFromRaw}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
-            >
+            <button onClick={parseFromRaw} className={btnSecondary}>
               Parse
             </button>
           </div>
@@ -123,11 +125,13 @@ function ResumeSection() {
           onChange={(e) => setRawCV(e.target.value)}
           spellCheck={false}
           placeholder="Drop a resume here (PDF, DOCX, TXT, MD), or paste your full career dump: roles, bullets, numbers, tools, anything."
-          className="h-40 w-full resize-y rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-300 outline-none placeholder:text-zinc-600 focus:border-emerald-400/40 focus:bg-white/[0.04]"
+          className="h-40 w-full resize-y rounded-xl border border-zinc-300 bg-white px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-800 outline-none placeholder:text-zinc-400 focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:placeholder:text-zinc-500"
         />
         {dragOver && (
-          <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-xl border-2 border-dashed border-emerald-400/50 bg-emerald-400/10">
-            <span className="text-xs font-medium text-emerald-200">Drop to parse your resume</span>
+          <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-xl border-2 border-dashed border-blue-500 bg-blue-50/80 dark:bg-blue-950/40">
+            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+              Drop to parse your resume
+            </span>
           </div>
         )}
       </div>
@@ -138,8 +142,8 @@ function ResumeSection() {
             key={b.id}
             className={`group flex items-start gap-2.5 rounded-xl border px-3 py-2 transition ${
               b.selected
-                ? "border-emerald-400/20 bg-emerald-400/[0.06]"
-                : "border-white/5 bg-white/[0.01] opacity-60"
+                ? "border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40"
+                : "border-zinc-200 bg-white opacity-60 dark:border-zinc-800 dark:bg-zinc-950"
             }`}
           >
             <button
@@ -147,8 +151,8 @@ function ResumeSection() {
               aria-label="Toggle bullet"
               className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-[5px] border transition ${
                 b.selected
-                  ? "border-emerald-400/60 bg-emerald-400/80 text-[#062015]"
-                  : "border-white/20 text-transparent hover:border-white/40"
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-zinc-300 text-transparent hover:border-zinc-400 dark:border-zinc-600"
               }`}
             >
               <svg viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="2">
@@ -156,24 +160,33 @@ function ResumeSection() {
               </svg>
             </button>
             <div className="min-w-0 flex-1">
-              <p className={`text-[12px] leading-snug ${b.selected ? "text-zinc-200" : "text-zinc-400"}`}>
+              <p
+                className={`text-[12px] leading-snug ${
+                  b.selected ? "text-zinc-800 dark:text-zinc-200" : "text-zinc-500 dark:text-zinc-400"
+                }`}
+              >
                 {b.text}
               </p>
               {b.tags.length > 0 && (
                 <div className="mt-1 flex flex-wrap gap-1">
                   {b.tags.map((t) => (
-                    <span key={t} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400">
+                    <span
+                      key={t}
+                      className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400"
+                    >
                       {t}
                     </span>
                   ))}
                 </div>
               )}
             </div>
-            <span className="mt-0.5 shrink-0 font-mono text-[10px] text-zinc-600">{b.id}</span>
+            <span className="mt-0.5 shrink-0 font-mono text-[10px] text-zinc-400 dark:text-zinc-600">
+              {b.id}
+            </span>
             <button
               onClick={() => removeBullet(b.id)}
               aria-label="Remove bullet"
-              className="mt-0.5 shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition hover:text-rose-300 group-hover:opacity-100"
+              className="mt-0.5 shrink-0 rounded p-0.5 text-zinc-400 opacity-0 transition hover:text-rose-500 group-hover:opacity-100"
             >
               <svg viewBox="0 0 14 14" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.6">
                 <path d="M3 3l8 8M11 3l-8 8" strokeLinecap="round" />
@@ -184,7 +197,7 @@ function ResumeSection() {
       </div>
 
       {bullets.length === 0 && (
-        <p className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-zinc-500">
+        <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-6 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
           No bullets yet. Upload a resume or paste text, then hit Parse.
         </p>
       )}
@@ -200,7 +213,7 @@ function ResumeSection() {
             }
           }}
           placeholder="Add a bullet manually…"
-          className="flex-1 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-[12px] text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-emerald-400/40"
+          className={field}
         />
         <button
           onClick={() => {
@@ -209,7 +222,7 @@ function ResumeSection() {
               setDraft("");
             }
           }}
-          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-white/10"
+          className={btnSecondary}
         >
           Add
         </button>
@@ -227,27 +240,21 @@ function TargetSection() {
   const runPipeline = useAgentStore((s) => s.runPipeline);
 
   const busy = ws.status === "routing" || ws.status === "generating" || ws.status === "assessing";
-  const field =
-    "w-full rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-2 text-[12px] text-zinc-200 outline-none transition placeholder:text-zinc-600 focus:border-emerald-400/40 focus:bg-white/[0.04]";
 
   return (
-    <section className="border-t border-white/10 pt-8">
+    <section className="border-t border-zinc-200 pt-8 dark:border-zinc-800">
       <SectionHeader
         id="target"
         n={2}
         title="Target job"
         actions={
-          <button
-            onClick={runPipeline}
-            disabled={busy}
-            className="rounded-lg bg-gradient-to-r from-emerald-400 to-sky-400 px-4 py-2 text-xs font-semibold text-[#05221a] transition disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <button onClick={runPipeline} disabled={busy} className={btnPrimary}>
             {busy ? "Running…" : "Run agent"}
           </button>
         }
       />
 
-      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         From the team job board
       </label>
       <select
@@ -297,7 +304,7 @@ function TargetSection() {
         className={`${field} mb-2 h-40 resize-y`}
       />
 
-      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         Intent (highest priority)
       </label>
       <textarea
@@ -308,7 +315,7 @@ function TargetSection() {
       />
 
       {ws.error && (
-        <p className="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-[11px] text-rose-200">
+        <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
           {ws.error}
         </p>
       )}
@@ -321,9 +328,9 @@ function TargetSection() {
 function StepCandidates({ step }: { step: JevStep }) {
   const ranked = [...step.candidates].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
   return (
-    <div className="rounded-lg border border-white/5 bg-white/[0.015] p-2.5">
+    <div className="rounded-lg border border-zinc-200 bg-white p-2.5 dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mb-1.5 flex items-center gap-2">
-        <span className="grid size-5 place-items-center rounded-md bg-violet-400/15 font-mono text-[10px] text-violet-300">
+        <span className="grid size-5 place-items-center rounded-md bg-violet-50 font-mono text-[10px] text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
           {step.step}
         </span>
         <Badge tone={step.status === "selected" ? "emerald" : "amber"}>{step.status}</Badge>
@@ -331,23 +338,23 @@ function StepCandidates({ step }: { step: JevStep }) {
       <div className="space-y-1">
         {ranked.map((c) => {
           const cap = CAPABILITY_BY_ID.get(c.id);
-          const pct = c.probability != null ? Math.round(Math.max(0, Math.min(1, c.probability)) * 100) : null;
+          const pct =
+            c.probability != null ? Math.round(Math.max(0, Math.min(1, c.probability)) * 100) : null;
           return (
             <div key={c.id} className={`flex items-center gap-2 ${c.filtered ? "opacity-50" : ""}`}>
-              <span className="w-4 shrink-0 font-mono text-[10px] text-zinc-500">{c.rank ?? "-"}</span>
-              <span className="w-28 shrink-0 truncate text-[11px] text-zinc-300">
+              <span className="w-4 shrink-0 font-mono text-[10px] text-zinc-400 dark:text-zinc-600">
+                {c.rank ?? "-"}
+              </span>
+              <span className="w-28 shrink-0 truncate text-[11px] text-zinc-700 dark:text-zinc-300">
                 {cap?.name ?? c.id}
               </span>
-              <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-sky-400"
-                  style={{ width: `${pct ?? 3}%` }}
-                />
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                <div className="h-full rounded-full bg-blue-500" style={{ width: `${pct ?? 3}%` }} />
               </div>
-              <span className="w-9 shrink-0 text-right font-mono text-[10px] text-zinc-500">
+              <span className="w-9 shrink-0 text-right font-mono text-[10px] text-zinc-400 dark:text-zinc-600">
                 {pct != null ? `${pct}%` : "n/a"}
               </span>
-              {c.requiresConfirmation && <span className="text-[10px] text-amber-300">🔒</span>}
+              {c.requiresConfirmation && <span className="text-[10px] text-amber-600 dark:text-amber-400">🔒</span>}
             </div>
           );
         })}
@@ -369,30 +376,29 @@ function PipelineSection() {
   const st = nodeState(selected, ws, bulletCount);
 
   return (
-    <section className="border-t border-white/10 pt-8">
+    <section className="border-t border-zinc-200 pt-8 dark:border-zinc-800">
       <SectionHeader
         id="pipeline"
         n={3}
         title="Pipeline"
         actions={
-          <button
-            onClick={() => setFlowOpen(true)}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
-          >
+          <button onClick={() => setFlowOpen(true)} className={btnSecondary}>
             Expand
           </button>
         }
       />
 
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
-            <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 ring-1 ring-inset ring-white/10">
+            <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 ring-1 ring-inset ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-800">
               Flow
             </span>
-            <span className="text-[13px] font-medium text-zinc-200">Tailoring pipeline</span>
+            <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">
+              Tailoring pipeline
+            </span>
           </div>
-          <span className="text-[11px] text-zinc-500">{FLOW_NODES.length} nodes</span>
+          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{FLOW_NODES.length} nodes</span>
         </div>
         <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="flex justify-center">
@@ -404,15 +410,19 @@ function PipelineSection() {
               size="embed"
             />
           </div>
-          <div className="rounded-xl border border-white/10 bg-[#0a0f18] p-4">
-            <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
+            <div className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Node detail
             </div>
-            <div className="mt-1 text-[14px] font-semibold text-zinc-100">{node.title}</div>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-400">{node.description}</p>
-            <ul className="mt-3 space-y-1 border-l border-white/10 pl-3">
+            <div className="mt-1 text-[14px] font-semibold text-zinc-900 dark:text-zinc-100">
+              {node.title}
+            </div>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+              {node.description}
+            </p>
+            <ul className="mt-3 space-y-1 border-l border-zinc-200 pl-3 dark:border-zinc-700">
               {st.lines.map((line, i) => (
-                <li key={i} className="text-[11px] leading-relaxed text-zinc-400">
+                <li key={i} className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
                   {line}
                 </li>
               ))}
@@ -448,7 +458,7 @@ function CVSection() {
   }, [ws.cv]);
 
   return (
-    <section className="border-t border-white/10 pt-8">
+    <section className="border-t border-zinc-200 pt-8 dark:border-zinc-800">
       <SectionHeader
         id="cv"
         n={4}
@@ -463,7 +473,7 @@ function CVSection() {
                 setTimeout(() => setCopied(false), 1200);
               }}
               disabled={!ws.cv}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
+              className={`${btnSecondary} disabled:opacity-40`}
             >
               {copied ? "Copied" : "Copy"}
             </button>
@@ -471,11 +481,11 @@ function CVSection() {
         }
       />
       {ws.cv ? (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <Markdown>{markdown}</Markdown>
         </div>
       ) : (
-        <p className="rounded-2xl border border-dashed border-white/10 px-4 py-10 text-center text-xs text-zinc-500">
+        <p className="rounded-2xl border border-dashed border-zinc-300 px-4 py-10 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
           Nothing generated yet. Run the agent from the Target job section.
         </p>
       )}
@@ -490,60 +500,72 @@ function QualitySection() {
   const a = ws.assessment;
 
   return (
-    <section className="border-t border-white/10 pt-8">
+    <section className="border-t border-zinc-200 pt-8 dark:border-zinc-800">
       <SectionHeader
         id="quality"
         n={5}
         title="Quality"
-        actions={a ? <Badge tone={a.overall >= 80 ? "emerald" : a.overall >= 65 ? "sky" : "amber"}>{a.overall}/100</Badge> : null}
+        actions={
+          a ? (
+            <Badge tone={a.overall >= 80 ? "emerald" : a.overall >= 65 ? "sky" : "amber"}>
+              {a.overall}/100
+            </Badge>
+          ) : null
+        }
       />
       {!a ? (
-        <p className="rounded-2xl border border-dashed border-white/10 px-4 py-10 text-center text-xs text-zinc-500">
+        <p className="rounded-2xl border border-dashed border-zinc-300 px-4 py-10 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
           No assessment yet.
         </p>
       ) : (
-        <div className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+        <div className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <div className="flex items-center gap-5">
             <ScoreRing value={a.overall} label="/100" />
-            <p className="text-[13px] leading-relaxed text-zinc-300">{a.verdict}</p>
+            <p className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300">{a.verdict}</p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {a.dimensions.map((d) => (
               <div key={d.key}>
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[12px] text-zinc-300">{d.label}</span>
-                  <span className="font-mono text-[11px] text-zinc-400">{d.score}</span>
+                  <span className="text-[12px] text-zinc-700 dark:text-zinc-300">{d.label}</span>
+                  <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{d.score}</span>
                 </div>
                 <Meter
                   value={d.score}
                   tone={d.score >= 80 ? "emerald" : d.score >= 65 ? "sky" : d.score >= 50 ? "amber" : "rose"}
                 />
-                <p className="mt-1 text-[10px] text-zinc-500">{d.note}</p>
+                <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-500">{d.note}</p>
               </div>
             ))}
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300">
+              <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
                 Matched ({a.matchedKeywords.length})
               </div>
               <div className="flex flex-wrap gap-1">
                 {a.matchedKeywords.map((k, i) => (
-                  <span key={`${k}-${i}`} className="rounded bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300">
+                  <span
+                    key={`${k}-${i}`}
+                    className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                  >
                     {k}
                   </span>
                 ))}
               </div>
             </div>
             <div>
-              <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-rose-300">
+              <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-400">
                 Missing ({a.missingKeywords.length})
               </div>
               <div className="flex flex-wrap gap-1">
                 {a.missingKeywords.map((k, i) => (
-                  <span key={`${k}-${i}`} className="rounded bg-rose-400/10 px-1.5 py-0.5 text-[10px] text-rose-300">
+                  <span
+                    key={`${k}-${i}`}
+                    className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"
+                  >
                     {k}
                   </span>
                 ))}
@@ -552,13 +574,13 @@ function QualitySection() {
           </div>
 
           <div>
-            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Suggested edits
             </div>
             <ul className="space-y-1.5">
               {a.suggestions.map((s, i) => (
-                <li key={i} className="flex gap-2 text-[12px] text-zinc-300">
-                  <span className="text-zinc-600">{i + 1}.</span>
+                <li key={i} className="flex gap-2 text-[12px] text-zinc-700 dark:text-zinc-300">
+                  <span className="text-zinc-400 dark:text-zinc-600">{i + 1}.</span>
                   {s}
                 </li>
               ))}
@@ -573,46 +595,52 @@ function QualitySection() {
 /* ------------------------------------------------------------------- Trace */
 
 const LEVEL_STYLE: Record<string, string> = {
-  info: "text-zinc-400",
-  jev: "text-violet-300",
-  llm: "text-emerald-300",
-  warn: "text-amber-300",
-  error: "text-rose-300",
+  info: "text-zinc-500 dark:text-zinc-400",
+  jev: "text-violet-600 dark:text-violet-400",
+  llm: "text-emerald-600 dark:text-emerald-400",
+  warn: "text-amber-600 dark:text-amber-400",
+  error: "text-rose-600 dark:text-rose-400",
 };
 
 function TraceSection() {
   const ws = useActiveWorkspace();
   return (
-    <section className="border-t border-white/10 pt-8 pb-16">
-      <details className="group rounded-2xl border border-white/10 bg-white/[0.02]">
+    <section className="border-t border-zinc-200 pt-8 pb-16 dark:border-zinc-800">
+      <details className="group rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-[12px] text-zinc-600">6</span>
-            <span className="text-[15px] font-semibold text-zinc-200">Agent trace</span>
+            <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">6</span>
+            <span className="text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">Agent trace</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-zinc-500">{ws.logs.length} events</span>
-            <span className="text-[11px] text-zinc-500 transition group-open:rotate-180">▾</span>
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{ws.logs.length} events</span>
+            <span className="text-[11px] text-zinc-500 transition group-open:rotate-180 dark:text-zinc-400">
+              ▾
+            </span>
           </div>
         </summary>
-        <div className="border-t border-white/10 px-4 py-3">
+        <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
           {ws.logs.length === 0 ? (
-            <p className="py-3 text-center text-xs text-zinc-600">No activity yet.</p>
+            <p className="py-3 text-center text-xs text-zinc-400 dark:text-zinc-600">No activity yet.</p>
           ) : (
             <div className="space-y-1">
               {ws.logs.map((l) => (
-                <div key={l.id} className="rounded-lg px-2 py-1.5 hover:bg-white/[0.03]">
+                <div key={l.id} className="rounded-lg px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-900">
                   <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-[10px] text-zinc-600">
-                      {new Date(l.at).toLocaleTimeString([], { hour12: false, minute: "2-digit", second: "2-digit" })}
+                    <span className="font-mono text-[10px] text-zinc-400 dark:text-zinc-600">
+                      {new Date(l.at).toLocaleTimeString([], {
+                        hour12: false,
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
                     </span>
-                    <span className={`font-mono text-[10px] uppercase ${LEVEL_STYLE[l.level] ?? "text-zinc-400"}`}>
+                    <span className={`font-mono text-[10px] uppercase ${LEVEL_STYLE[l.level] ?? ""}`}>
                       {l.level}
                     </span>
-                    <span className="text-[11px] text-zinc-300">{l.message}</span>
+                    <span className="text-[11px] text-zinc-700 dark:text-zinc-300">{l.message}</span>
                   </div>
                   {l.detail && (
-                    <p className="ml-14 whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-zinc-600">
+                    <p className="ml-14 whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-zinc-400 dark:text-zinc-600">
                       {l.detail}
                     </p>
                   )}
@@ -638,7 +666,7 @@ function DocumentHeader() {
 
   return (
     <header className="pb-2">
-      <h1 className="text-3xl font-semibold tracking-tight text-zinc-100">
+      <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
         {ws.job.title || "Untitled job"}
       </h1>
       <div className="mt-3 flex flex-wrap items-center gap-2">

@@ -115,7 +115,7 @@ async function resolveModel(p: Resolved): Promise<Resolved | null> {
   if (p.model !== "auto") return p;
   try {
     const models = await listModels(p.baseUrl, p.apiKey).then((ids) =>
-      ids.filter((id) => !/embed/i.test(id)),
+      ids.filter((id) => !/embed|abliterat/i.test(id)),
     );
     if (models.length === 0) return null;
     return { ...p, model: models[0] };
@@ -130,7 +130,7 @@ async function withLocalFallback(chain: Resolved[]): Promise<Resolved[]> {
   if (process.env.LLM_LOCAL === "0") return chain;
   try {
     const models = await listModels(LM_BASE, "lmstudio").then((ids) =>
-      ids.filter((id) => !/embed/i.test(id)),
+      ids.filter((id) => !/embed|abliterat/i.test(id)),
     );
     if (models.length === 0) return chain;
     const local: Resolved = {
