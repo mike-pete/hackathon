@@ -1,4 +1,11 @@
-const jobs = {
+type Job = {
+  title: string,
+  company: string, 
+  baseRange: [number, number],
+  description: string
+}
+
+const jobs: Record<number, Job> = {
   4472843078:{
     title: "Frontend Software Engineer, Codex App",
     company: "OpenAI",
