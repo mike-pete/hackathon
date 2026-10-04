@@ -19,10 +19,8 @@ export default function JobsPage() {
   const selected = selectedId ? jobs[Number(selectedId)] : null;
 
   return (
-    <Group
-      orientation="horizontal"
-      className="min-h-0 flex-1 bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100"
-    >
+    <div className="flex min-h-0 flex-1 bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100">
+    <Group orientation="horizontal" className="h-full w-full">
       {/* Sidebar */}
       <Panel
         defaultSize="320px"
@@ -31,13 +29,7 @@ export default function JobsPage() {
         className="overflow-y-auto"
       >
         <aside className="h-full border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
-          <h1 className="text-lg font-semibold">Jobs</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {jobEntries.length} {jobEntries.length === 1 ? "opening" : "openings"}
-          </p>
-        </div>
-        <ul>
+        <ul className="flex flex-col gap-2 p-3">
           {jobEntries.map(([id, job]) => {
             const isActive = id === selectedId;
             return (
@@ -45,10 +37,10 @@ export default function JobsPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedId(id)}
-                  className={`w-full border-b border-zinc-100 px-5 py-4 text-left transition-colors dark:border-zinc-900 ${
+                  className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
                     isActive
-                      ? "border-l-2 border-l-blue-600 bg-blue-50 dark:bg-blue-950/40"
-                      : "hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                      ? "border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-950/40"
+                      : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700 dark:hover:bg-zinc-900"
                   }`}
                 >
                   <p className="font-medium leading-snug">{job.title}</p>
@@ -96,5 +88,6 @@ export default function JobsPage() {
       </main>
       </Panel>
     </Group>
+    </div>
   );
 }
