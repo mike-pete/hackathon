@@ -25,18 +25,19 @@ export default function RulesEditor() {
   if (!hydrated) return null;
 
   return (
-    <div className="mt-6 flex flex-col gap-4">
+    <div className="mt-6">
       {rules.length === 0 && (
         <p className="text-sm text-zinc-500">
           No rules yet. Add one to describe what you care about in a job.
         </p>
       )}
 
-      {rules.map((rule) => (
-        <div
-          key={rule.id}
-          className="relative rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
-        >
+      <div className="flex flex-col gap-4">
+        {rules.map((rule) => (
+          <div
+            key={rule.id}
+            className="relative rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
+          >
           <button
             type="button"
             onClick={() => removeRule(rule.id)}
@@ -71,10 +72,31 @@ export default function RulesEditor() {
               className="mt-1 w-full resize-y rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-700"
             />
           </label>
-        </div>
-      ))}
 
-      <div>
+          <div className="mt-4 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <span>Counts as a fit at</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={rule.threshold}
+              onChange={(e) =>
+                updateRule(rule.id, {
+                  threshold: Math.max(
+                    0,
+                    Math.min(100, Math.round(Number(e.target.value) || 0)),
+                  ),
+                })
+              }
+              className="w-16 rounded-md border border-zinc-300 bg-transparent px-2 py-1 text-sm tabular-nums outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-700"
+            />
+            <span>% fit or higher</span>
+          </div>
+        </div>
+        ))}
+      </div>
+
+      <div className="mt-4">
         <button
           type="button"
           onClick={addRule}

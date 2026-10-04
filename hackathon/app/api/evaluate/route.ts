@@ -4,9 +4,16 @@ import { evaluateWithJev, isJevConfigured, type JevQuestion } from "../../jev";
 // Evaluates a job against the candidate's rules using jev (Vercel AI Gateway).
 // The whole job is handed to jev as JSON `state`, and each rule becomes one
 // boolean question ("is this a good fit?"). Returns a verdict per rule.
-// POST { jobId, rules: { id, key, value }[] } -> { results } | { error }.
+// POST { jobId, rules: { id, key, value, threshold }[] } -> { results } | { error }.
 
-type IncomingRule = { id: string; key: string; value: string };
+type IncomingRule = {
+  id: string;
+  key: string;
+  value: string;
+  threshold?: number;
+};
+
+const DEFAULT_THRESHOLD = 50;
 
 export async function POST(request: Request) {
   if (!isJevConfigured()) {
@@ -52,10 +59,12 @@ export async function POST(request: Request) {
     const results = activeRules.map((rule) => {
       const answer = answers[rule.id];
       const probability = answer?.type === "boolean" ? answer.probability : 0;
+      const threshold = rule.threshold ?? DEFAULT_THRESHOLD;
       return {
         id: rule.id,
         key: rule.key.trim(),
-        pass: probability >= 0.5,
+        threshold,
+        pass: probability >= threshold / 100,
         probability,
       };
     });

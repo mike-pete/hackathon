@@ -2,7 +2,7 @@
 
 import jobs from "@/app/jobs";
 import { create } from "zustand";
-import { parseBigCV } from "./sample";
+import { inferTags, parseBigCV } from "./sample";
 import type {
   Assessment,
   BigCVBullet,
@@ -89,6 +89,8 @@ type Actions = {
   setRawCV: (text: string) => void;
   parseFromRaw: () => void;
   toggleBullet: (id: string) => void;
+  updateBullet: (id: string, text: string) => void;
+  updateCV: (cv: GeneratedCV) => void;
   addBullet: (text: string) => void;
   removeBullet: (id: string) => void;
   refreshProviders: () => Promise<void>;
@@ -97,6 +99,7 @@ type Actions = {
   openBoardJob: (boardId: string) => void;
   removeWorkspace: (id: string) => void;
   setActiveId: (id: string) => void;
+  setWorkspaceTabName: (id: string, name: string | null) => void;
   setJob: (patch: Partial<JobTarget>) => void;
   setIntent: (intent: string) => void;
   setVerbatimness: (verbatimness: number) => void;
@@ -238,6 +241,25 @@ export const useAgentStore = create<State & Actions>((set, get) => {
         bullets: s.bullets.map((b) => (b.id === id ? { ...b, selected: !b.selected } : b)),
       })),
 
+    updateBullet: (id, text) =>
+      set((s) => {
+        const original = s.bullets.find((b) => b.id === id);
+        return {
+          rawCV:
+            original?.source === "parsed" && original.text
+              ? s.rawCV.replace(original.text, text)
+              : s.rawCV,
+          bullets: s.bullets.map((b) =>
+            b.id === id ? { ...b, text, tags: inferTags(text) } : b,
+          ),
+        };
+      }),
+
+    updateCV: (cv) =>
+      set((s) => ({
+        workspaces: s.workspaces.map((w) => (w.id === s.activeId ? { ...w, cv } : w)),
+      })),
+
     addBullet: (text) =>
       set((s) => ({
         bullets: [
@@ -295,6 +317,13 @@ export const useAgentStore = create<State & Actions>((set, get) => {
       }),
 
     setActiveId: (id) => set({ activeId: id, flowOpen: false, selectedNode: null }),
+
+    setWorkspaceTabName: (id, name) =>
+      set((s) => ({
+        workspaces: s.workspaces.map((w) =>
+          w.id === id ? { ...w, tabName: name || undefined } : w,
+        ),
+      })),
 
     setJob: (patchObj) =>
       set((s) => ({

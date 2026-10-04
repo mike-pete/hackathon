@@ -1,6 +1,8 @@
 "use server";
 
 import { getPeopleStatus } from "@/lib/research";
+import { contactKey, createOutreachDraft, draftedContactKeys, inboxId, outreachMode } from "@/lib/outreach/agentmail";
+import { writeOutreachEmail } from "./outreach";
 import { toResearchJob } from "./researchJobs";
 
 export type PersonProfile = {
@@ -48,4 +50,56 @@ export async function getPeopleResearch(jobId: number): Promise<PeopleResearch> 
       description: [c.reason, c.hooks].filter(Boolean).join(" "),
     })),
   };
+}
+
+export type OutreachState = {
+  inbox: string;
+  // Where drafts are addressed: the real contacts, a test address, or nobody.
+  recipients: { live: true } | { live: false; testRecipient?: string };
+  // Profile URLs of people that already have a draft for this job.
+  drafted: string[];
+};
+
+async function doneContacts(jobId: number) {
+  const status = await getPeopleStatus(toResearchJob(jobId));
+  if (status.state !== "done") throw new Error("People research for this job hasn't finished yet");
+  return status.contacts;
+}
+
+export async function getOutreachState(jobId: number): Promise<OutreachState> {
+  const contacts = await doneContacts(jobId);
+  const keys = await draftedContactKeys(String(jobId));
+  const mode = outreachMode();
+  return {
+    inbox: inboxId(),
+    recipients: mode,
+    drafted: contacts.filter((c) => keys.has(contactKey(c.profileUrl))).map((c) => c.profileUrl),
+  };
+}
+
+// Writes an email to one researched contact and saves it as a draft in the
+// AgentMail inbox. Nothing is ever sent from here (see lib/outreach/agentmail.ts).
+export async function draftOutreachEmail(jobId: number, profileUrl: string): Promise<void> {
+  const contact = (await doneContacts(jobId)).find((c) => c.profileUrl === profileUrl);
+  if (!contact) throw new Error("Unknown contact for this job");
+
+  const email = await writeOutreachEmail(jobId, contact);
+  await createOutreachDraft({
+    jobId: String(jobId),
+    profileUrl: contact.profileUrl,
+    recipientName: contact.name,
+    recipientEmail: contact.email,
+    ...email,
+  });
+}
+
+// Drafts emails to several contacts in parallel. Done in one action because the
+// client dispatches server actions one at a time. Returns an error per failed profile URL.
+export async function draftOutreachEmails(jobId: number, profileUrls: string[]): Promise<Record<string, string>> {
+  const results = await Promise.allSettled(profileUrls.map((url) => draftOutreachEmail(jobId, url)));
+  const errors: Record<string, string> = {};
+  results.forEach((r, i) => {
+    if (r.status === "rejected") errors[profileUrls[i]] = r.reason instanceof Error ? r.reason.message : String(r.reason);
+  });
+  return errors;
 }

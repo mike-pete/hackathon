@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getPeopleResearch, type PeopleResearch } from "./actions";
-import PersonCard from "./PersonCard";
+import OutreachPeople from "./OutreachPeople";
 
 const POLL_MS = 5000;
 
@@ -78,11 +78,7 @@ export default function JobResearch({ jobId, company }: { jobId: number; company
           {research.error}
         </p>
       ) : research.state === "done" && research.people.length > 0 ? (
-        <div className="mt-5 flex flex-col gap-4">
-          {research.people.map((person) => (
-            <PersonCard key={person.profileUrl} person={person} />
-          ))}
-        </div>
+        <OutreachPeople jobId={jobId} people={research.people} />
       ) : (
         <p className="mt-4 text-sm text-zinc-500">No people found.</p>
       )}
