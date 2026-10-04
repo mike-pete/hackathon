@@ -26,7 +26,7 @@ export default function JobsPage() {
         defaultSize="320px"
         minSize="240px"
         maxSize="480px"
-        className="overflow-y-auto"
+        className="overflow-y-auto no-scrollbar"
       >
         <aside className="h-full border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <ul className="flex flex-col gap-2 p-3">

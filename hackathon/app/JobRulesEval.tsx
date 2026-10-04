@@ -110,7 +110,7 @@ export default function JobRulesEval({ jobId }: { jobId: number }) {
       ) : loading && !results?.length ? (
         <p className="mt-3 text-sm text-zinc-500">Evaluating rules…</p>
       ) : (
-        <ul className="mt-4 flex flex-col gap-2">
+        <ul className="mt-4 flex flex-wrap gap-3">
           {results?.map((result) => {
             const pct = Math.round(result.probability * 100);
             const tone = fitTone(pct);
@@ -126,10 +126,7 @@ export default function JobRulesEval({ jobId }: { jobId: number }) {
                     <IconX size={16} stroke={2.5} />
                   )}
                 </span>
-                <span className="flex-1 text-sm font-medium">{result.key}</span>
-                <span className={`text-xs font-medium tabular-nums ${tone.text}`}>
-                  {pct}% fit
-                </span>
+                <span className="text-sm font-medium">{result.key}</span>
               </li>
             );
           })}

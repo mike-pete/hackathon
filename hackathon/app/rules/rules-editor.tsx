@@ -32,11 +32,11 @@ export default function RulesEditor() {
         </p>
       )}
 
-      <div className="gap-4 sm:columns-2 lg:columns-3">
+      <div className="flex flex-col gap-4">
         {rules.map((rule) => (
           <div
             key={rule.id}
-            className="relative mb-4 break-inside-avoid rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
+            className="relative rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
           >
           <button
             type="button"
