@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import jobs from "../jobs";
+import JobResearch from "../JobResearch";
+import JobSummary from "../JobSummary";
 
 function formatComp([min, max]: [number, number]) {
   const k = (n: number) => `$${Math.round(n / 1000)}K`;
@@ -65,9 +67,13 @@ export default function JobsPage() {
             <p className="mt-3 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
               {formatComp(selected.baseRange)} base
             </p>
+            <JobSummary key={`summary-${selectedId}`} jobId={Number(selectedId)} />
+
             <div className="mt-8 whitespace-pre-line text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">
               {selected.description.trim()}
             </div>
+
+            <JobResearch key={selectedId} company={selected.company} />
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-zinc-500">
