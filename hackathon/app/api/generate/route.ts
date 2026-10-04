@@ -1,6 +1,7 @@
 import { jsonComplete } from "@/lib/llm";
 import { mockGenerate } from "@/lib/mock";
 import { generatePrompt } from "@/lib/prompts";
+import { completeResumeEvidence } from "@/lib/resume-selection";
 import type { BigCVBullet, GeneratedCV, JobTarget } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -64,11 +65,16 @@ export async function POST(request: Request) {
     return Response.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const bullets = (body.bullets || []).filter((b) => b.selected);
+  const source = body.bullets || [];
+  const bullets = source.filter((b) => b.selected);
   const job = body.job || { title: "", company: "", url: "", description: "" };
   const verbatimness = Math.max(0, Math.min(100, Math.round(body.verbatimness ?? 0)));
   const fallback = () =>
-    mockGenerate({ bullets, job, intent: body.intent || "" });
+    completeResumeEvidence(
+      mockGenerate({ bullets: source, job, intent: body.intent || "" }),
+      source,
+      job,
+    );
 
   try {
     const { system, user } = generatePrompt({
@@ -85,11 +91,16 @@ export async function POST(request: Request) {
       { maxTokens: 4000 },
     );
     if (!isUsableCV(data)) throw new Error("model returned an unusable CV shape");
-    return Response.json({ cv: normalize(data, bullets, verbatimness), provider, model });
+    const completed = completeResumeEvidence(normalize(data), source, job);
+    return Response.json({
+      cv: normalize(completed, source, verbatimness),
+      provider,
+      model,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return Response.json({
-      cv: normalize(fallback(), bullets, verbatimness),
+      cv: normalize(fallback(), source, verbatimness),
       provider: "mock",
       model: "deterministic",
       warning: message,

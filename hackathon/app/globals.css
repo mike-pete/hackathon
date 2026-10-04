@@ -218,3 +218,9 @@ body {
     background: rgb(24 24 27);
   }
 }
+
+/* Tailwind v4's reset sets buttons to cursor: default; restore the pointer. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}

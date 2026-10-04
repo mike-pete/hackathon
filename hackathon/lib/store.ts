@@ -362,12 +362,20 @@ export const useAgentStore = create<State & Actions>((set, get) => {
 
       const selected = state.bullets.filter((b) => b.selected);
       if (selected.length === 0) {
-        patch(id, { status: "error", error: "Select at least one Big CV bullet first." });
+        patch(id, {
+          status: "error",
+          error: "Select at least one Big CV bullet first.",
+          pipelineErrorNode: "bullets",
+        });
         appendLog(id, "warn", "No bullets selected; nothing to tailor.");
         return;
       }
       if (!ws.job.description.trim()) {
-        patch(id, { status: "error", error: "Paste a job description first." });
+        patch(id, {
+          status: "error",
+          error: "Paste a job description first.",
+          pipelineErrorNode: "jev",
+        });
         appendLog(id, "warn", "No job description; nothing to target.");
         return;
       }

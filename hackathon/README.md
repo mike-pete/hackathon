@@ -1,3 +1,5 @@
+**Live demo:** [hackathon-gold-rho-73.vercel.app](https://hackathon-gold-rho-73.vercel.app)
+
 # Tailor — a personal CV + job + JEV agent
 
 A personal agent that turns a **Big CV** (a messy dump of everything you have ever

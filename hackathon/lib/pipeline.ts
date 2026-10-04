@@ -76,6 +76,10 @@ export function nodeState(
 ): NodeState {
   const running = (cap: string) => ws.activeCapability === cap;
 
+  if (ws.status === "error" && ws.pipelineErrorNode === key) {
+    return { status: "error", lines: [ws.error || "This step failed."] };
+  }
+
   switch (key) {
     case "bullets":
       return {
