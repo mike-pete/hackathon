@@ -34,6 +34,29 @@ body {
   background: rgba(37, 99, 235, 0.2);
 }
 
+@keyframes loadingbar {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(360%); }
+}
+
+@keyframes agent-draft-cursor {
+  0%, 8% { transform: translate(0, 0); }
+  28% { transform: translate(180px, 12px); }
+  51% { transform: translate(110px, 88px); }
+  73% { transform: translate(340px, 86px); }
+  92%, 100% { transform: translate(230px, 145px); }
+}
+
+.agent-draft-cursor {
+  animation: agent-draft-cursor 8s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-draft-cursor {
+    animation: none;
+  }
+}
+
 /* Slim scrollbars that match the shell. */
 * {
   scrollbar-width: thin;

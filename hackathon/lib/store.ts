@@ -42,6 +42,7 @@ function makeWorkspace(job: JobTarget = BLANK_JOB, intent = ""): Workspace {
     research: null,
     status: "idle",
     activeCapability: null,
+    pipelineErrorNode: undefined,
     logs: [],
     usedMock: false,
     error: null,
@@ -58,6 +59,7 @@ function cleared(ws: Workspace): Workspace {
     research: null,
     status: "idle",
     activeCapability: null,
+    pipelineErrorNode: undefined,
     logs: [],
     usedMock: false,
     error: null,
@@ -373,6 +375,7 @@ export const useAgentStore = create<State & Actions>((set, get) => {
       patch(id, cleared({ ...ws, status: "routing" }));
       appendLog(id, "info", `Pipeline start: ${selected.length} bullets -> ${ws.job.title || "role"}`);
 
+      let currentNode = "jev";
       try {
         appendLog(id, "jev", "Asking JevRouter to plan the capability order…");
         const jevRes = await fetch("/api/jev", {
@@ -396,6 +399,7 @@ export const useAgentStore = create<State & Actions>((set, get) => {
 
         let research: string | null = null;
         if (jev.executionPlan.includes("company_research")) {
+          currentNode = "research";
           patch(id, { activeCapability: "company_research" });
           appendLog(id, "jev", "Capability company_research: grounding the role…");
           try {
@@ -415,6 +419,7 @@ export const useAgentStore = create<State & Actions>((set, get) => {
           }
         }
 
+        currentNode = "generate";
         patch(id, { activeCapability: "cv_generate", status: "generating" });
         appendLog(id, "llm", "Capability cv_generate: tailoring the CV…");
         const genRes = await fetch("/api/generate", {
@@ -438,6 +443,7 @@ export const useAgentStore = create<State & Actions>((set, get) => {
         patch(id, { cv: genData.cv, usedMock: genData.provider === "mock" });
         appendLog(id, "llm", `Tailored CV generated via ${genData.provider}/${genData.model}`);
 
+        currentNode = "assess";
         patch(id, { activeCapability: "cv_assess", status: "assessing" });
         appendLog(id, "llm", "Capability cv_assess: scoring the CV…");
         const assessRes = await fetch("/api/assess", {
@@ -450,11 +456,11 @@ export const useAgentStore = create<State & Actions>((set, get) => {
           assessment: Assessment;
           provider: string;
         };
-        patch(id, { assessment: assessData.assessment, status: "done", activeCapability: null });
+        patch(id, { assessment: assessData.assessment, status: "done", activeCapability: null, pipelineErrorNode: undefined });
         appendLog(id, "info", `Done. Quality score ${assessData.assessment.overall}/100`);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        patch(id, { status: "error", error: message, activeCapability: null });
+        patch(id, { status: "error", error: message, activeCapability: null, pipelineErrorNode: currentNode });
         appendLog(id, "error", "Pipeline failed", message);
       }
     },

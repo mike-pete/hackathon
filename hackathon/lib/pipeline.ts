@@ -154,6 +154,7 @@ export function nodeState(
 
 /** The node the pipeline is currently working on, for auto-selection. */
 export function activeNodeKey(ws: Workspace): string {
+  if (ws.status === "error" && ws.pipelineErrorNode) return ws.pipelineErrorNode;
   if (ws.status === "routing") return "jev";
   if (ws.activeCapability === "company_research") return "research";
   if (ws.activeCapability === "cv_generate" || ws.status === "generating") return "generate";

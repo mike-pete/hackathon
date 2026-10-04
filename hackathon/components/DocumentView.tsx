@@ -26,6 +26,117 @@ const btnPrimary =
 const field =
   "w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-2 text-[13px] text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500";
 
+type AgentStep = {
+  id: string;
+  label: string;
+  hint: string;
+  section: string;
+  status: "done" | "current" | "upcoming" | "skipped" | "error";
+};
+
+function buildAgentSteps(ws: ReturnType<typeof useActiveWorkspace>): AgentStep[] {
+  const busy = ["routing", "generating", "assessing"].includes(ws.status);
+  const active = activeNodeKey(ws);
+  const researchSelected = ws.jev?.executionPlan.includes("company_research") ?? false;
+  const researchSkipped = Boolean(ws.jev && !researchSelected);
+  const stages = [
+    { id: "jev", label: "Plan the work", hint: "Choosing the right steps", section: "pipeline" },
+    { id: "research", label: "Research the role", hint: "Checking company context", section: "pipeline" },
+    { id: "generate", label: "Draft the CV", hint: "Matching experience to the role", section: "cv" },
+    { id: "assess", label: "Review the draft", hint: "Checking fit and coverage", section: "quality" },
+  ];
+  const activeIndex = stages.findIndex((stage) => stage.id === active);
+
+  return stages.map((stage, index) => {
+    const skipped = stage.id === "research" && researchSkipped;
+    const done = stage.id === "jev"
+      ? Boolean(ws.jev)
+      : stage.id === "research"
+        ? Boolean(ws.research) || skipped || (Boolean(ws.cv) && !researchSelected)
+        : stage.id === "generate"
+          ? Boolean(ws.cv)
+          : Boolean(ws.assessment);
+    let status: AgentStep["status"] = done ? (skipped ? "skipped" : "done") : "upcoming";
+    if (busy && index === activeIndex) status = "current";
+    if (ws.status === "error" && ws.pipelineErrorNode === stage.id) status = "error";
+    return { ...stage, status };
+  });
+}
+
+function AgentActivity({ ws }: { ws: ReturnType<typeof useActiveWorkspace> }) {
+  const [collapsedAt, setCollapsedAt] = useState<string | null>(null);
+  const [manualExpanded, setManualExpanded] = useState(false);
+  const busy = ["routing", "generating", "assessing"].includes(ws.status);
+  const groupKey = `${ws.status}:${ws.activeCapability}`;
+  const expanded = busy ? collapsedAt !== groupKey : manualExpanded;
+  const steps = buildAgentSteps(ws);
+  const current = steps.find((step) => step.status === "current" || step.status === "error");
+  const completed = steps.filter((step) => step.status === "done" || step.status === "skipped").length;
+  const message = current?.status === "error"
+    ? "The run stopped"
+    : current?.hint ?? (ws.status === "done" ? "Your draft is ready" : "Ready when you are");
+
+  return (
+    <section
+      aria-live="polite"
+      className={`mb-6 overflow-hidden rounded-2xl border bg-white dark:bg-zinc-950 ${
+        busy
+          ? "border-blue-200 shadow-sm shadow-blue-950/5 dark:border-blue-900"
+          : ws.status === "error"
+            ? "border-rose-200 dark:border-rose-900"
+            : "border-zinc-200 dark:border-zinc-800"
+      }`}
+    >
+      <div className="flex items-center gap-3 px-4 py-3.5">
+        <span className={`relative grid size-9 shrink-0 place-items-center rounded-full ${busy ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400"}`}>
+          {busy && <span className="absolute inset-0 rounded-full border border-blue-400/40 animate-ping motion-reduce:animate-none" />}
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="relative size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M5 5.5h14v13H5zM8 9h8M8 12h5M8 15h6" strokeLinecap="round" strokeLinejoin="round" />
+            {busy && <path d="M15.8 14.2v2.2" className="origin-center animate-pulse motion-reduce:animate-none" strokeWidth="2.5" />}
+          </svg>
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">{busy ? "Your CV agent is working" : ws.status === "done" ? "CV agent finished" : ws.status === "error" ? "CV agent paused" : "CV agent"}</span>
+            {busy && <span className="inline-flex items-center gap-1.5 text-[11px] text-blue-700 dark:text-blue-300"><span className="size-1.5 rounded-full bg-blue-500 animate-pulse motion-reduce:animate-none" /> Live</span>}
+          </div>
+          <p className="mt-0.5 truncate text-[12px] text-zinc-500 dark:text-zinc-400">
+            {current ? <><span className="font-medium text-zinc-700 dark:text-zinc-300">{current.label}</span><span className="px-1.5 text-zinc-300 dark:text-zinc-700">·</span>{message}</> : message}
+          </p>
+        </div>
+        <div className="hidden w-28 shrink-0 sm:block">
+          <div className="mb-1 flex justify-between font-mono text-[9px] text-zinc-400"><span>Progress</span><span>{completed}/{steps.length}</span></div>
+          <div className="flex gap-1" aria-label={`${completed} of ${steps.length} steps complete`}>
+            {steps.map((step) => <span key={step.id} className={`h-1 flex-1 rounded-full ${step.status === "done" || step.status === "skipped" ? "bg-emerald-500" : step.status === "current" ? "bg-blue-500 animate-pulse motion-reduce:animate-none" : step.status === "error" ? "bg-rose-500" : "bg-zinc-200 dark:bg-zinc-800"}`} />)}
+          </div>
+        </div>
+      </div>
+      <details className="group border-t border-zinc-100 dark:border-zinc-900" open={expanded} onToggle={(event) => {
+        if (busy) setCollapsedAt(event.currentTarget.open ? null : groupKey);
+        else setManualExpanded(event.currentTarget.open);
+      }}>
+        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2 text-[10px] font-medium text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 dark:text-zinc-400">
+          <span>{busy ? `Working on step ${Math.max(1, steps.findIndex((step) => step.status === "current") + 1)} of ${steps.length}` : "Run details"}</span>
+          <span className="transition group-open:rotate-180">⌄</span>
+        </summary>
+        <ol className="grid grid-cols-1 gap-px bg-zinc-100 dark:bg-zinc-900 sm:grid-cols-4">
+          {steps.map((step, index) => (
+            <li key={step.id} className={`flex items-center gap-2 bg-white px-3 py-2.5 dark:bg-zinc-950 ${step.status === "current" ? "sm:bg-blue-50/70 sm:dark:bg-blue-950/30" : ""}`}>
+              <span className={`grid size-5 shrink-0 place-items-center rounded-full font-mono text-[9px] ${step.status === "done" || step.status === "skipped" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : step.status === "current" ? "bg-blue-600 text-white" : step.status === "error" ? "bg-rose-100 text-rose-700" : "bg-zinc-100 text-zinc-400 dark:bg-zinc-900"}`}>
+                {step.status === "done" ? "✓" : step.status === "skipped" ? "–" : index + 1}
+              </span>
+              <div className="min-w-0">
+                <p className={`truncate text-[10px] font-medium ${step.status === "current" ? "text-blue-700 dark:text-blue-300" : "text-zinc-700 dark:text-zinc-300"}`}>{step.label}</p>
+                <p className="truncate text-[9px] text-zinc-400 dark:text-zinc-500">{step.status === "current" ? step.hint : step.status === "done" ? "Complete" : step.status === "skipped" ? "Skipped" : step.status === "error" ? "Needs attention" : "Up next"}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </details>
+    </section>
+  );
+}
+
 function SectionHeader({
   id,
   n,
@@ -418,7 +529,8 @@ function PipelineSection() {
   const setFlowOpen = useAgentStore((s) => s.setFlowOpen);
 
   const bulletCount = bullets.filter((b) => b.selected).length;
-  const selected = selectedNode ?? activeNodeKey(ws);
+  const busy = ["routing", "generating", "assessing"].includes(ws.status);
+  const selected = busy ? activeNodeKey(ws) : selectedNode ?? activeNodeKey(ws);
   const node = FLOW_NODES.find((n) => n.key === selected)!;
   const st = nodeState(selected, ws, bulletCount);
 
@@ -495,6 +607,7 @@ function CVSection() {
   const [copied, setCopied] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [visibleCharacters, setVisibleCharacters] = useState(0);
 
   const markdown = useMemo(() => {
     if (!ws.cv) return "";
@@ -505,6 +618,26 @@ function CVSection() {
     const cover = ws.cv.coverNote ? `\n## Cover note\n\n> ${ws.cv.coverNote}` : "";
     return `# ${ws.cv.headline}\n\n${ws.cv.summary}\n\n**Skills:** ${skills}\n\n## Experience\n\n${bullets}\n${cover}`;
   }, [ws.cv]);
+
+  useEffect(() => {
+    if (!ws.cv) {
+      setVisibleCharacters(0);
+      return;
+    }
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      setVisibleCharacters(markdown.length);
+      return;
+    }
+    setVisibleCharacters(0);
+    let revealed = 0;
+    const timer = window.setInterval(() => {
+      revealed = Math.min(markdown.length, revealed + 18);
+      setVisibleCharacters(revealed);
+      if (revealed >= markdown.length) window.clearInterval(timer);
+    }, 35);
+    return () => window.clearInterval(timer);
+  }, [markdown, ws.cv]);
 
   const downloadPdf = useCallback(async () => {
     const state = useAgentStore.getState();
@@ -575,13 +708,35 @@ function CVSection() {
       {ws.cv ? (
         <>
           {pdfError && <p role="alert" className="mb-3 text-xs text-rose-700 dark:text-rose-300">{pdfError}</p>}
-          <p className="mb-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-            The PDF keeps claims tied to Rahul’s resume and adds strong original points when fewer than five fit the role.
-          </p>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-            <Markdown>{markdown}</Markdown>
+          <div className="relative rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
+            <Markdown>{markdown.slice(0, visibleCharacters)}{visibleCharacters < markdown.length ? " ▍" : ""}</Markdown>
+            {visibleCharacters < markdown.length && (
+              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[9px] font-medium text-blue-700 shadow-sm dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
+                <span className="relative size-1.5 rounded-full bg-blue-500"><span className="absolute inset-0 rounded-full bg-blue-400 animate-ping motion-reduce:animate-none" /></span>
+                CV agent <span className="opacity-60">is writing</span>
+              </div>
+            )}
           </div>
         </>
+      ) : ws.status === "generating" ? (
+        <div className="relative min-h-72 overflow-hidden rounded-2xl border border-blue-200 bg-white p-6 dark:border-blue-900 dark:bg-zinc-950">
+          <div className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-blue-50 dark:bg-blue-950/60"><div className="h-full w-1/3 animate-[loadingbar_1.8s_ease-in-out_infinite] bg-blue-500 motion-reduce:animate-none" /></div>
+          <div className="mb-6 flex items-center gap-2 text-[11px] font-medium text-blue-700 dark:text-blue-300">
+            <span className="relative grid size-5 place-items-center rounded-full bg-blue-50 dark:bg-blue-950"><span className="size-2 rounded-full border-2 border-blue-600 border-r-transparent animate-spin motion-reduce:animate-none" /></span>
+            Agent is drafting your tailored CV
+          </div>
+          <div className="agent-draft-cursor absolute left-8 top-16 z-10 rounded-md bg-blue-600 px-2 py-1 text-[9px] font-semibold text-white shadow-md shadow-blue-900/20">
+            <span className="mr-1">↖</span>CV agent
+          </div>
+          <div className="max-w-xl animate-pulse space-y-4 motion-reduce:animate-none">
+            <div className="h-5 w-2/3 rounded bg-zinc-100 dark:bg-zinc-900" />
+            <div className="h-3 w-full rounded bg-zinc-100 dark:bg-zinc-900" />
+            <div className="h-3 w-5/6 rounded bg-zinc-100 dark:bg-zinc-900" />
+            <div className="flex gap-2 pt-2"><div className="h-5 w-20 rounded-full bg-blue-50 dark:bg-blue-950/70" /><div className="h-5 w-24 rounded-full bg-blue-50 dark:bg-blue-950/70" /><div className="h-5 w-16 rounded-full bg-blue-50 dark:bg-blue-950/70" /></div>
+            <div className="space-y-3 pt-4"><div className="h-3 w-full rounded bg-zinc-100 dark:bg-zinc-900" /><div className="h-3 w-11/12 rounded bg-zinc-100 dark:bg-zinc-900" /><div className="h-3 w-4/5 rounded bg-zinc-100 dark:bg-zinc-900" /></div>
+          </div>
+          <p className="absolute bottom-5 right-6 font-mono text-[10px] text-zinc-400 dark:text-zinc-600">Using selected evidence · {ws.verbatimness}% source wording</p>
+        </div>
       ) : (
         <p className="rounded-2xl border border-dashed border-zinc-300 px-4 py-10 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
           Nothing generated yet. Run the agent from the Target job section.
@@ -804,13 +959,39 @@ function DocumentHeader() {
 }
 
 export function DocumentView() {
+  const ws = useActiveWorkspace();
   const order = useAgentStore((s) => s.sectionOrder);
   const setSectionOrder = useAgentStore((s) => s.setSectionOrder);
+  const previousFocus = useRef("");
   const { containerRef, dragIndex, overIndex, onPointerDown } = useDragReorder({
     orientation: "vertical",
     count: order.length,
     onReorder: (from, to) => setSectionOrder(move(order, from, to)),
   });
+
+  useEffect(() => {
+    const busy = ["routing", "generating", "assessing"].includes(ws.status);
+    if (ws.status === "done") {
+      const focusKey = `${ws.id}:complete`;
+      if (previousFocus.current !== focusKey) {
+        previousFocus.current = focusKey;
+        document.getElementById("quality")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
+    if (!busy) {
+      previousFocus.current = "";
+      return;
+    }
+    const step = activeNodeKey(ws);
+    const focusKey = `${ws.id}:${step}`;
+    if (previousFocus.current === focusKey) return;
+    previousFocus.current = focusKey;
+    // Keep the streamed draft visible while the assessment runs; advance to
+    // the quality report only once the full pipeline has finished.
+    const target = step === "generate" || step === "assess" ? "cv" : "pipeline";
+    document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [ws.id, ws.status, ws.activeCapability]);
 
   const registry: Record<string, React.ReactNode> = {
     resume: <ResumeSection />,
@@ -825,6 +1006,7 @@ export function DocumentView() {
     <main className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl px-8 py-10">
         <DocumentHeader />
+        <AgentActivity ws={ws} />
         <div ref={containerRef}>
           {order.map((id, i) => (
             <ReorderContext.Provider
