@@ -1,36 +1,112 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tailor — a personal CV + job + JEV agent
 
-## Getting Started
+A personal agent that turns a **Big CV** (a messy dump of everything you have ever
+done) plus a **target job** and an **intent** into a tailored, evidence-grounded CV
+and an honest quality assessment.
 
-First, run the development server:
+This is the CV + Job + JEV slice of the **res-you-may-agents** team's build for the
+[Build Personal Agents hack](https://build-personal-agents.com) (Oct 4, 2026, SF).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## What it does
+
+1. **Big CV in.** Paste your whole career dump. It is parsed into candidate
+   evidence bullets you can toggle on and off.
+2. **JEV routes the work.** [JevRouter](https://github.com/BillionsBobby/JevRouter)
+   is given the capability set and asked which capability handles each step of the
+   request. It returns ordered steps with Jev probabilities, confidence, router
+   rank, risk level, confirmation gates, filters and provenance hashes.
+3. **Capabilities execute in plan order.** `company_research` (optional) →
+   `cv_generate` → `cv_assess`.
+4. **Tailored CV out.** A headline, summary, ATS skills, rewritten bullets with
+   `← evidenceId` traces back to the Big CV, and a cover note.
+5. **Quality assessment.** Six dimensions scored 0–100, matched/missing keyword
+   coverage, and concrete suggested edits.
+
+## Architecture
+
+```
+app/
+  page.tsx                 three-column shell (Big CV · JEV · Output)
+  api/jev/route.ts         JevRouter plan (HTTP → CLI → policy fallback)
+  api/generate/route.ts    tailored CV (LLM, deterministic mock fallback)
+  api/assess/route.ts      quality assessment (LLM, deterministic mock fallback)
+  api/research/route.ts    Exa if keyed, else LLM knowledge brief, else stub
+  api/health/route.ts      provider detection for the badges
+components/                BigCVPanel, JobPanel, JevPanel, OutputPanel, PipelineLog
+lib/
+  jev.ts                   JevRouter client + decision normalisation
+  capabilities.ts          the capability manifests handed to JevRouter
+  llm.ts                   OpenAI-compatible client (LM Studio → OpenCode Zen)
+  prompts.ts               generation + assessment prompts (strict JSON)
+  mock.ts                  deterministic offline fallback (keyword overlap scoring)
+  store.ts                 Zustand, in-memory only
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**No database.** All state lives in a Zustand store for the session, exactly as the
+team scoped it: `big CV and intent can change`, nothing persisted.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## JEV integration in detail
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`lib/capabilities.ts` defines five manifests (`cv_generate`, `cv_assess`,
+`company_research`, `cover_letter`, `email_send`). The last two carry risk and a
+confirmation gate, so JevRouter reasons about them differently.
 
-## Learn More
+`lib/jev.ts` runs the plan over three transports, in order:
 
-To learn more about Next.js, take a look at the following resources:
+| Transport | How | When |
+|---|---|---|
+| `http` | `POST /route` to a running `jevrouter serve` | `JEV_HTTP_URL` reachable |
+| `cli` | `npx jevrouter plan --provider demo --stdin` | default, fully offline |
+| `policy` | deterministic local fallback | CLI unavailable |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The router is **decision-only**: nothing executes implicitly. When Jev confidence
+is below policy it returns `no_decision` and a `low_confidence` fallback, and the
+UI labels the executed capabilities as *best-ranked safe picks* rather than
+pretending it was a confident choice.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`npm run jev` starts the HTTP server on `:8787` for the fast path.
 
-## Deploy on Vercel
+## LLM
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`lib/llm.ts` auto-detects, in order:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **LM Studio** at `http://127.0.0.1:1234/v1` (no key, fully offline).
+2. **OpenCode Zen** via `OPENCODE_API_KEY`.
+3. **Deterministic mock** so the demo never dead-ends.
+
+## Run it
+
+```bash
+npm install
+
+# optional: load a local model (LM Studio + lms CLI)
+lms load qwen3-30b-a3b-abliterated --gpu max --ttl 7200 -y
+
+# optional: serve JevRouter for the fast HTTP route
+npm run jev
+
+npm run dev
+```
+
+Open http://localhost:3000. The app seeds itself with a sample Big CV and job on
+first load.
+
+> If port 3000 is taken (e.g. by another local service), run `PORT=3100 npm run dev`.
+
+## Environment
+
+See `.env.example`. Everything is optional; the app degrades gracefully.
+
+- `EXA_API_KEY` — turns `company_research` into real web research.
+- `OPENCODE_API_KEY` — fallback LLM provider.
+- `JEV_HTTP_URL`, `JEV_PROVIDER`, `OPENROUTER_API_KEY` — route Jev live instead of
+  the offline demo provider.
+
+## What is real vs. stubbed
+
+- **Real:** JevRouter decision/plan with its full contract; local LLM generation
+  and scoring; Big CV parsing; keyword coverage math; the whole UI.
+- **Stubbed / pluggable:** `email_send` is modelled as a gated capability but no
+  mail is sent; `cover_letter` is produced inside the generation step rather than
+  as its own routed capability; Exa research falls back to the model's knowledge
+  when no key is present.
