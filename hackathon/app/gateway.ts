@@ -12,7 +12,10 @@ import OpenAI from "openai";
 // Optional:
 //   NEON_AI_GATEWAY_MODEL     Model id (defaults to gpt-5-mini)
 
-export const GATEWAY_MODEL = process.env.NEON_AI_GATEWAY_MODEL ?? "gpt-5-mini";
+// Default to a fast, cheap model (good for streamed summaries). Override
+// per-env with NEON_AI_GATEWAY_MODEL if you want higher-quality output.
+export const GATEWAY_MODEL =
+  process.env.NEON_AI_GATEWAY_MODEL ?? "gemini-3-5-flash-lite";
 
 export function isGatewayConfigured() {
   return Boolean(

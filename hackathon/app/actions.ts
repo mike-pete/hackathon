@@ -1,35 +1,5 @@
 "use server";
 
-import jobs from "./jobs";
-import { getGatewayClient, GATEWAY_MODEL } from "./gateway";
-
-// Summarizes a job description into a few tight bullet points via the Neon AI
-// Gateway. Takes the job id so the summary is scoped to the selected listing.
-export async function summarizeJob(jobId: number): Promise<string> {
-  const job = jobs[jobId];
-  if (!job) {
-    throw new Error(`Unknown job: ${jobId}`);
-  }
-
-  const client = getGatewayClient();
-  const response = await client.chat.completions.create({
-    model: GATEWAY_MODEL,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You summarize job postings for a candidate. Reply with 3-5 short bullet points covering the role, key responsibilities, and standout requirements. Be concise and specific. No preamble.",
-      },
-      {
-        role: "user",
-        content: `Summarize this job posting.\n\nCompany: ${job.company}\nTitle: ${job.title}\n\n${job.description.trim()}`,
-      },
-    ],
-  });
-
-  return response.choices[0]?.message?.content?.trim() ?? "";
-}
-
 export type PersonProfile = {
   profilePicUrl: string;
   jobTitle: string;

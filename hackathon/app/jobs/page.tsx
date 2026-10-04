@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Group, Panel, Separator } from "react-resizable-panels";
 import jobs from "../jobs";
 import JobResearch from "../JobResearch";
 import JobSummary from "../JobSummary";
@@ -17,9 +18,18 @@ export default function JobsPage() {
   const selected = selectedId ? jobs[Number(selectedId)] : null;
 
   return (
-    <div className="flex flex-1 bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100">
+    <Group
+      orientation="horizontal"
+      className="flex-1 bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100"
+    >
       {/* Sidebar */}
-      <aside className="w-80 shrink-0 overflow-y-auto border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+      <Panel
+        defaultSize="320px"
+        minSize="240px"
+        maxSize="480px"
+        className="overflow-y-auto"
+      >
+        <aside className="h-full border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <div className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
           <h1 className="text-lg font-semibold">Jobs</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -52,10 +62,14 @@ export default function JobsPage() {
             );
           })}
         </ul>
-      </aside>
+        </aside>
+      </Panel>
+
+      <Separator className="w-px bg-zinc-200 transition-colors hover:bg-blue-500 data-[separator=active]:bg-blue-500 data-[separator=focus]:bg-blue-500 dark:bg-zinc-800" />
 
       {/* Main detail panel */}
-      <main className="flex-1 overflow-y-auto">
+      <Panel className="overflow-y-auto">
+      <main className="h-full">
         {selected ? (
           <div className="mx-auto max-w-3xl px-10 py-10">
             <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
@@ -81,6 +95,7 @@ export default function JobsPage() {
           </div>
         )}
       </main>
-    </div>
+      </Panel>
+    </Group>
   );
 }
