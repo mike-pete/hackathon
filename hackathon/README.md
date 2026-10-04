@@ -91,18 +91,26 @@ npm run dev
 Open http://localhost:3000. The app seeds itself with a sample Big CV and job on
 first load.
 
+- **Upload** (top of the Big CV panel) parses a resume file into bullets. PDF via
+  `unpdf`, DOCX via `mammoth`, TXT/MD/RTF as text. You can also drag a file onto
+  the textarea. Max 8 MB.
 - **Sample CV** loads the fictional payments persona.
 - **My resume** loads Rahul's real resume (`lib/rahul-resume.ts`, from
   `~/Documents/Personal Mac Documents/Rahul_Tuladhar_Resume.pdf`) as the Big CV.
 - **From the job board** in the Target job panel pulls jobs from Mike's shared
   `app/jobs.ts`, so the CV agent and the `/jobs` board use one source of truth.
 
+The stepper under the header tracks the workflow: **Add resume → Pick a job →
+Set intent → Run agent → Review**.
+
 > If port 3000 is taken (e.g. by another local service), run `PORT=3100 npm run dev`.
 
 ## End-to-end walkthrough
 
 1. Open http://localhost:3000.
-2. Click **My resume** to load the real Big CV (25 parsed bullets).
+2. Click **Upload** in the Big CV panel and choose a resume file (or drag it onto
+   the textarea), or click **My resume** for the bundled real example. Either way
+   the bullets appear in the list (22 for the PDF, 25 for the bundled text).
 3. In **Target job → From the job board**, pick
    "Frontend Software Engineer, Codex App · OpenAI".
 4. Click **Run agent**.

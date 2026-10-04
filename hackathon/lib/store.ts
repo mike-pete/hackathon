@@ -36,6 +36,7 @@ type State = {
 type Actions = {
   hydrateSample: () => void;
   loadResume: () => void;
+  uploadResume: (file: File) => Promise<void>;
   clearAll: () => void;
   setRawCV: (text: string) => void;
   parseFromRaw: () => void;
@@ -109,6 +110,50 @@ export const useAgentStore = create<State & Actions>((set, get) => ({
         sampleLabel: "Rahul Tuladhar (real resume)",
       });
     });
+  },
+
+  uploadResume: async (file: File) => {
+    const { log } = get();
+    set({ error: null, status: "idle" });
+    log("info", `Uploading ${file.name}…`);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/parse-resume", { method: "POST", body });
+      const data = (await res.json()) as {
+        text?: string;
+        kind?: string;
+        pages?: number;
+        error?: string;
+      };
+      if (!res.ok || !data.text) {
+        set({ error: data.error || "Could not parse that file." });
+        log("error", "Resume parse failed", data.error);
+        return;
+      }
+      const bullets = parseBigCV(data.text);
+      set({
+        rawCV: data.text,
+        bullets,
+        jev: null,
+        cv: null,
+        assessment: null,
+        research: null,
+        status: "idle",
+        logs: [],
+        usedMock: false,
+        sampleLabel: `${file.name} · ${bullets.length} bullets`,
+      });
+      log(
+        "info",
+        `Imported ${file.name}: ${bullets.length} bullets`,
+        `${data.kind ?? "text"}${data.pages ? ` · ${data.pages} page(s)` : ""}`,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      set({ error: message });
+      log("error", "Resume upload failed", message);
+    }
   },
 
   clearAll: () =>

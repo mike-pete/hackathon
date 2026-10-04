@@ -4,6 +4,7 @@ import { JevPanel } from "@/components/JevPanel";
 import { JobPanel } from "@/components/JobPanel";
 import { OutputPanel } from "@/components/OutputPanel";
 import { PipelineLog } from "@/components/PipelineLog";
+import { Stepper } from "@/components/Stepper";
 import { TopBar } from "@/components/TopBar";
 
 export default function Home() {
@@ -11,6 +12,7 @@ export default function Home() {
     <div className="flex min-h-dvh flex-col">
       <Bootstrap />
       <TopBar />
+      <Stepper />
       <main className="mx-auto grid w-full max-w-[1700px] flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-12">
         <div className="flex flex-col gap-3 lg:col-span-4">
           <BigCVPanel />

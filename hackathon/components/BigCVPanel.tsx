@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAgentStore } from "@/lib/store";
 import { Badge, Card } from "./ui";
 
@@ -12,19 +12,48 @@ export function BigCVPanel() {
   const toggleBullet = useAgentStore((s) => s.toggleBullet);
   const removeBullet = useAgentStore((s) => s.removeBullet);
   const addBullet = useAgentStore((s) => s.addBullet);
+  const uploadResume = useAgentStore((s) => s.uploadResume);
 
   const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const selected = bullets.filter((b) => b.selected).length;
+
+  const handleFile = async (file: File | undefined | null) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      await uploadResume(file);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   return (
     <Card
       title="Big CV"
-      subtitle="Dump everything. The agent picks what matters."
+      subtitle="Upload a resume or dump everything. The agent picks what matters."
       right={
         <div className="flex items-center gap-2">
           <Badge tone="emerald">
             {selected}/{bullets.length} in play
           </Badge>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.docx,.txt,.md,.markdown,.rtf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={busy}
+            className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200 transition hover:bg-emerald-400/20 disabled:opacity-50"
+          >
+            {busy ? "Parsing…" : "Upload"}
+          </button>
           <button
             onClick={parseFromRaw}
             className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-zinc-200 transition hover:bg-white/10"
@@ -36,18 +65,40 @@ export function BigCVPanel() {
       className="min-h-[22rem]"
       bodyClassName="flex flex-col"
     >
-      <textarea
-        value={rawCV}
-        onChange={(e) => setRawCV(e.target.value)}
-        spellCheck={false}
-        placeholder="Paste your full career dump here: roles, bullets, numbers, tools, anything."
-        className="h-40 w-full resize-none border-b border-white/10 bg-transparent px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-300 outline-none placeholder:text-zinc-600 focus:bg-white/[0.02]"
-      />
+      <div
+        className="relative"
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          handleFile(e.dataTransfer.files?.[0]);
+        }}
+      >
+        <textarea
+          value={rawCV}
+          onChange={(e) => setRawCV(e.target.value)}
+          spellCheck={false}
+          placeholder="Drop a resume here (PDF, DOCX, TXT, MD), or paste your full career dump: roles, bullets, numbers, tools, anything."
+          className="h-40 w-full resize-none border-b border-white/10 bg-transparent px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-300 outline-none placeholder:text-zinc-600 focus:bg-white/[0.02]"
+        />
+        {dragOver && (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-lg border-2 border-dashed border-emerald-400/50 bg-emerald-400/10">
+            <span className="text-xs font-medium text-emerald-200">
+              Drop to parse your resume
+            </span>
+          </div>
+        )}
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
         {bullets.length === 0 && (
           <p className="px-2 py-6 text-center text-xs text-zinc-500">
-            No bullets yet. Paste your CV and hit Parse.
+            No bullets yet. Upload a resume (PDF, DOCX, TXT, MD) or paste text,
+            then hit Parse.
           </p>
         )}
         {bullets.map((b) => (
