@@ -83,7 +83,7 @@ export default function JobsPage() {
             <JobRulesEval key={`rules-${selectedId}`} jobId={Number(selectedId)} />
 
             <div className="mt-6">
-              <ResumeEmbed />
+              <ResumeEmbed key={`resume-${selectedId}`} jobId={Number(selectedId)} />
             </div>
 
             <JobResearch key={selectedId} jobId={Number(selectedId)} company={selected.company} />
