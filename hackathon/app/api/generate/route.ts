@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     const { data, provider, model } = await jsonComplete<GeneratedCV>(
       system,
       user,
-      { maxTokens: 3000 },
+      { maxTokens: 4000 },
     );
     if (!isUsableCV(data)) throw new Error("model returned an unusable CV shape");
     return Response.json({ cv: normalize(data), provider, model });

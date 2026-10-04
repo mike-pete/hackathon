@@ -26,21 +26,43 @@ This is the CV + Job + JEV slice of the **res-you-may-agents** team's build for 
 
 ```
 app/
-  page.tsx                 three-column shell (Big CV · JEV · Output)
+  page.tsx                 document shell (header · job tabs · contents rail · document)
   api/jev/route.ts         JevRouter plan (HTTP → CLI → policy fallback)
   api/generate/route.ts    tailored CV (LLM, deterministic mock fallback)
   api/assess/route.ts      quality assessment (LLM, deterministic mock fallback)
   api/research/route.ts    Exa if keyed, else LLM knowledge brief, else stub
+  api/parse-resume/route.ts upload a resume (PDF via unpdf, DOCX via mammoth)
   api/health/route.ts      provider detection for the badges
-components/                BigCVPanel, JobPanel, JevPanel, OutputPanel, PipelineLog
+components/
+  TopBar.tsx               brand, provider badges, resume actions
+  JobTabs.tsx              one tab per target job, sourced from app/jobs.ts
+  ContentsRail.tsx         section nav + resume source
+  DocumentView.tsx         the markdown document: CV, job, pipeline, quality, trace
+  FlowDiagram.tsx          the pipeline node graph (embedded + full)
+  FlowOverlay.tsx          expanded canvas with the right-hand tour stepper
+  Markdown.tsx             react-markdown renderer
 lib/
   jev.ts                   JevRouter client + decision normalisation
   capabilities.ts          the capability manifests handed to JevRouter
-  llm.ts                   OpenAI-compatible client (LM Studio → OpenCode Zen)
+  pipeline.ts              flow nodes + live per-node state
+  llm.ts                   OpenAI-compatible failover chain
   prompts.ts               generation + assessment prompts (strict JSON)
-  mock.ts                  deterministic offline fallback (keyword overlap scoring)
-  store.ts                 Zustand, in-memory only
+  mock.ts                  deterministic offline fallback
+  store.ts                 Zustand workspaces, in-memory only
 ```
+
+## UI
+
+- **Job tabs** up top: one tab per target job, each keeping its own intent,
+  JEV plan, tailored CV, assessment and trace. The Big CV is shared across tabs.
+- **Contents rail** on the left: section nav with completion ticks, plus the
+  resume source and Upload/Parse.
+- **Document column**: the whole flow rendered as a markdown document with
+  numbered sections (Big CV, Target job, Pipeline, Tailored CV, Quality, Agent
+  trace).
+- **Pipeline**: an embedded node graph. **Expand** opens a full-screen canvas
+  with a right-hand **Tour** stepper; click any node (or step) to see its detail.
+- **Agent trace**: a collapsed section at the bottom.
 
 **No database.** All state lives in a Zustand store for the session, exactly as the
 team scoped it: `big CV and intent can change`, nothing persisted.
@@ -124,14 +146,15 @@ Set intent → Run agent → Review**.
 2. Click **Upload** in the Big CV panel and choose a resume file (or drag it onto
    the textarea), or click **My resume** for the bundled real example. Either way
    the bullets appear in the list (22 for the PDF, 25 for the bundled text).
-3. In **Target job → From the job board**, pick
-   "Frontend Software Engineer, Codex App · OpenAI".
+3. Click **+ Job** and pick "Frontend Software Engineer, Codex App · OpenAI".
+   A new tab opens for it.
 4. Click **Run agent**.
-5. Watch the middle column: JevRouter returns a plan (capabilities ranked with
-   probabilities, risk and confirmation gates), then the trace shows each
-   capability executing.
-6. Read the right column: the tailored CV with `← evidenceId` traces, then the
-   **Quality** tab for the six-dimension score, keyword coverage and edits.
+5. Watch the **Pipeline** section: the node graph lights up as JevRouter plans and
+   each capability runs. Click a node to see its detail, or **Expand** for the
+   full canvas and the right-hand tour stepper.
+6. Read the **Tailored CV** section (rendered markdown, each bullet traced to a
+   Big CV id), then **Quality** for the score, keyword coverage and edits.
+7. The **Agent trace** at the bottom is collapsed; open it for the raw event log.
 
 
 ## Environment

@@ -154,3 +154,22 @@ export type ProviderStatus = {
     detail: string;
   };
 };
+
+/**
+ * One tab. Each target job keeps its own intent, JEV plan, tailored CV,
+ * assessment, trace and status. The Big CV itself is shared across tabs.
+ */
+export type Workspace = {
+  id: string;
+  job: JobTarget;
+  intent: string;
+  jev: JevPlan | null;
+  cv: GeneratedCV | null;
+  assessment: Assessment | null;
+  research: string | null;
+  status: PipelineStatus;
+  activeCapability: string | null;
+  logs: LogEntry[];
+  usedMock: boolean;
+  error: string | null;
+};

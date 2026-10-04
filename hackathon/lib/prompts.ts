@@ -1,3 +1,4 @@
+import { keywordsFrom } from "./mock";
 import type { Assessment, BigCVBullet, GeneratedCV, JobTarget } from "./types";
 
 const CV_SCHEMA = `{
@@ -39,10 +40,30 @@ export function generatePrompt(input: {
   plan: string[];
   research?: string | null;
 }): { system: string; user: string } {
-  const evidence = input.bullets
-    .filter((b) => b.selected)
+  const jobKeywords = keywordsFrom(`${input.job.title} ${input.job.description}`);
+  const selected = input.bullets.filter((b) => b.selected);
+  // Rank bullets by job-keyword overlap so the prompt stays small on long postings.
+  const ranked = selected
+    .map((b) => ({
+      b,
+      score: jobKeywords.filter((k) =>
+        `${b.text} ${b.tags.join(" ")}`.toLowerCase().includes(k),
+      ).length,
+    }))
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        Number(/\d/.test(b.b.text)) - Number(/\d/.test(a.b.text)),
+    )
+    .slice(0, 14)
+    .map((x) => x.b);
+
+  const evidence = ranked
     .map((b) => `[${b.id}] (${b.tags.join(", ") || "general"}) ${b.text}`)
     .join("\n");
+
+  // Keep the job text within a predictable token budget.
+  const description = (input.job.description || "(not given)").slice(0, 2600);
 
   return {
     system: `You are an expert CV writer and ATS optimisation engine for a personal career agent.
@@ -58,7 +79,7 @@ ${CV_SCHEMA}`,
 Title: ${input.job.title || "(not given)"}
 Company: ${input.job.company || "(not given)"}
 Description:
-${input.job.description || "(not given)"}
+${description}
 
 USER INTENT (highest priority): ${input.intent || "Tailor broadly to the role."}
 
@@ -87,7 +108,7 @@ ${ASSESS_SCHEMA}`,
 Title: ${input.job.title || "(not given)"}
 Company: ${input.job.company || "(not given)"}
 Description:
-${input.job.description || "(not given)"}
+${(input.job.description || "(not given)").slice(0, 2200)}
 
 TAILORED CV (JSON)
 ${JSON.stringify(input.cv)}

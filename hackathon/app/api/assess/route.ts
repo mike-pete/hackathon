@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   try {
     const { system, user } = assessPrompt({ cv, job });
     const { data, provider, model } = await jsonComplete<Assessment>(system, user, {
-      maxTokens: 2200,
+      maxTokens: 2600,
     });
     if (!isUsable(data)) throw new Error("model returned an unusable assessment");
     return Response.json({ assessment: normalize(data), provider, model });

@@ -1,0 +1,670 @@
+"use client";
+
+import { useMemo, useRef, useState } from "react";
+import jobs from "@/app/jobs";
+import { CAPABILITY_BY_ID } from "@/lib/capabilities";
+import { activeNodeKey, FLOW_NODES, nodeState } from "@/lib/pipeline";
+import { useActiveWorkspace, useAgentStore } from "@/lib/store";
+import type { JevStep } from "@/lib/types";
+import { FlowDiagram } from "./FlowDiagram";
+import { Markdown } from "./Markdown";
+import { Badge, Meter, ScoreRing, type Tone } from "./ui";
+
+const boardJobs = Object.entries(jobs).map(([id, job]) => ({ id, ...job }));
+
+function formatComp([min, max]: [number, number]) {
+  const k = (n: number) => `$${Math.round(n / 1000)}K`;
+  return `${k(min)} - ${k(max)}`;
+}
+
+function SectionHeader({
+  id,
+  n,
+  title,
+  actions,
+}: {
+  id: string;
+  n: number;
+  title: string;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <div id={id} className="scroll-mt-4">
+      <div className="mb-4 flex items-end justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          <span className="font-mono text-[12px] text-zinc-600">{n}</span>
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-100">{title}</h2>
+        </div>
+        {actions}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ Resume */
+
+function ResumeSection() {
+  const rawCV = useAgentStore((s) => s.rawCV);
+  const bullets = useAgentStore((s) => s.bullets);
+  const setRawCV = useAgentStore((s) => s.setRawCV);
+  const parseFromRaw = useAgentStore((s) => s.parseFromRaw);
+  const toggleBullet = useAgentStore((s) => s.toggleBullet);
+  const removeBullet = useAgentStore((s) => s.removeBullet);
+  const addBullet = useAgentStore((s) => s.addBullet);
+  const uploadResume = useAgentStore((s) => s.uploadResume);
+  const [draft, setDraft] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const selected = bullets.filter((b) => b.selected).length;
+
+  const handleFile = async (file: File | null | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      await uploadResume(file);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <section className="border-t border-white/10 pt-8">
+      <SectionHeader
+        id="resume"
+        n={1}
+        title="Big CV"
+        actions={
+          <div className="flex items-center gap-2">
+            <Badge tone="emerald">
+              {selected}/{bullets.length} in play
+            </Badge>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.docx,.txt,.md,.markdown,.rtf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+            />
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+              className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:bg-emerald-400/20 disabled:opacity-50"
+            >
+              {busy ? "Parsing…" : "Upload resume"}
+            </button>
+            <button
+              onClick={parseFromRaw}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
+            >
+              Parse
+            </button>
+          </div>
+        }
+      />
+
+      <div
+        className="relative mb-4"
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          handleFile(e.dataTransfer.files?.[0]);
+        }}
+      >
+        <textarea
+          value={rawCV}
+          onChange={(e) => setRawCV(e.target.value)}
+          spellCheck={false}
+          placeholder="Drop a resume here (PDF, DOCX, TXT, MD), or paste your full career dump: roles, bullets, numbers, tools, anything."
+          className="h-40 w-full resize-y rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-300 outline-none placeholder:text-zinc-600 focus:border-emerald-400/40 focus:bg-white/[0.04]"
+        />
+        {dragOver && (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-xl border-2 border-dashed border-emerald-400/50 bg-emerald-400/10">
+            <span className="text-xs font-medium text-emerald-200">Drop to parse your resume</span>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        {bullets.map((b) => (
+          <div
+            key={b.id}
+            className={`group flex items-start gap-2.5 rounded-xl border px-3 py-2 transition ${
+              b.selected
+                ? "border-emerald-400/20 bg-emerald-400/[0.06]"
+                : "border-white/5 bg-white/[0.01] opacity-60"
+            }`}
+          >
+            <button
+              onClick={() => toggleBullet(b.id)}
+              aria-label="Toggle bullet"
+              className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-[5px] border transition ${
+                b.selected
+                  ? "border-emerald-400/60 bg-emerald-400/80 text-[#062015]"
+                  : "border-white/20 text-transparent hover:border-white/40"
+              }`}
+            >
+              <svg viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2.5 6.2 5 8.6l4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className={`text-[12px] leading-snug ${b.selected ? "text-zinc-200" : "text-zinc-400"}`}>
+                {b.text}
+              </p>
+              {b.tags.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {b.tags.map((t) => (
+                    <span key={t} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <span className="mt-0.5 shrink-0 font-mono text-[10px] text-zinc-600">{b.id}</span>
+            <button
+              onClick={() => removeBullet(b.id)}
+              aria-label="Remove bullet"
+              className="mt-0.5 shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition hover:text-rose-300 group-hover:opacity-100"
+            >
+              <svg viewBox="0 0 14 14" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.6">
+                <path d="M3 3l8 8M11 3l-8 8" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {bullets.length === 0 && (
+        <p className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-zinc-500">
+          No bullets yet. Upload a resume or paste text, then hit Parse.
+        </p>
+      )}
+
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && draft.trim()) {
+              addBullet(draft.trim());
+              setDraft("");
+            }
+          }}
+          placeholder="Add a bullet manually…"
+          className="flex-1 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-[12px] text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-emerald-400/40"
+        />
+        <button
+          onClick={() => {
+            if (draft.trim()) {
+              addBullet(draft.trim());
+              setDraft("");
+            }
+          }}
+          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-white/10"
+        >
+          Add
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ Target */
+
+function TargetSection() {
+  const ws = useActiveWorkspace();
+  const setJob = useAgentStore((s) => s.setJob);
+  const setIntent = useAgentStore((s) => s.setIntent);
+  const runPipeline = useAgentStore((s) => s.runPipeline);
+
+  const busy = ws.status === "routing" || ws.status === "generating" || ws.status === "assessing";
+  const field =
+    "w-full rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-2 text-[12px] text-zinc-200 outline-none transition placeholder:text-zinc-600 focus:border-emerald-400/40 focus:bg-white/[0.04]";
+
+  return (
+    <section className="border-t border-white/10 pt-8">
+      <SectionHeader
+        id="target"
+        n={2}
+        title="Target job"
+        actions={
+          <button
+            onClick={runPipeline}
+            disabled={busy}
+            className="rounded-lg bg-gradient-to-r from-emerald-400 to-sky-400 px-4 py-2 text-xs font-semibold text-[#05221a] transition disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? "Running…" : "Run agent"}
+          </button>
+        }
+      />
+
+      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+        From the team job board
+      </label>
+      <select
+        value={ws.job.sourceId ?? ""}
+        onChange={(e) => {
+          const picked = boardJobs.find((j) => j.id === e.target.value);
+          if (picked)
+            setJob({
+              title: picked.title,
+              company: picked.company,
+              description: picked.description,
+              url: "",
+              sourceId: picked.id,
+              baseRange: picked.baseRange,
+            });
+        }}
+        className={`${field} mb-3 appearance-none`}
+      >
+        <option value="">Pick a job from the team board…</option>
+        {boardJobs.map((j) => (
+          <option key={j.id} value={j.id}>
+            {j.title} · {j.company} · {formatComp(j.baseRange)}
+          </option>
+        ))}
+      </select>
+
+      <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <input
+          value={ws.job.title}
+          onChange={(e) => setJob({ title: e.target.value, sourceId: undefined, baseRange: undefined })}
+          placeholder="Job title"
+          className={field}
+        />
+        <input
+          value={ws.job.company}
+          onChange={(e) => setJob({ company: e.target.value, sourceId: undefined, baseRange: undefined })}
+          placeholder="Company"
+          className={field}
+        />
+      </div>
+
+      <textarea
+        value={ws.job.description}
+        onChange={(e) => setJob({ description: e.target.value })}
+        placeholder="Paste the job description…"
+        spellCheck={false}
+        className={`${field} mb-2 h-40 resize-y`}
+      />
+
+      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+        Intent (highest priority)
+      </label>
+      <textarea
+        value={ws.intent}
+        onChange={(e) => setIntent(e.target.value)}
+        placeholder="e.g. emphasise reliability and scale, keep to one page, sound senior not salesy"
+        className={`${field} h-16 resize-y`}
+      />
+
+      {ws.error && (
+        <p className="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-[11px] text-rose-200">
+          {ws.error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------- Pipeline */
+
+function StepCandidates({ step }: { step: JevStep }) {
+  const ranked = [...step.candidates].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+  return (
+    <div className="rounded-lg border border-white/5 bg-white/[0.015] p-2.5">
+      <div className="mb-1.5 flex items-center gap-2">
+        <span className="grid size-5 place-items-center rounded-md bg-violet-400/15 font-mono text-[10px] text-violet-300">
+          {step.step}
+        </span>
+        <Badge tone={step.status === "selected" ? "emerald" : "amber"}>{step.status}</Badge>
+      </div>
+      <div className="space-y-1">
+        {ranked.map((c) => {
+          const cap = CAPABILITY_BY_ID.get(c.id);
+          const pct = c.probability != null ? Math.round(Math.max(0, Math.min(1, c.probability)) * 100) : null;
+          return (
+            <div key={c.id} className={`flex items-center gap-2 ${c.filtered ? "opacity-50" : ""}`}>
+              <span className="w-4 shrink-0 font-mono text-[10px] text-zinc-500">{c.rank ?? "-"}</span>
+              <span className="w-28 shrink-0 truncate text-[11px] text-zinc-300">
+                {cap?.name ?? c.id}
+              </span>
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-sky-400"
+                  style={{ width: `${pct ?? 3}%` }}
+                />
+              </div>
+              <span className="w-9 shrink-0 text-right font-mono text-[10px] text-zinc-500">
+                {pct != null ? `${pct}%` : "n/a"}
+              </span>
+              {c.requiresConfirmation && <span className="text-[10px] text-amber-300">🔒</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PipelineSection() {
+  const ws = useActiveWorkspace();
+  const bullets = useAgentStore((s) => s.bullets);
+  const selectedNode = useAgentStore((s) => s.selectedNode);
+  const selectNode = useAgentStore((s) => s.selectNode);
+  const setFlowOpen = useAgentStore((s) => s.setFlowOpen);
+
+  const bulletCount = bullets.filter((b) => b.selected).length;
+  const selected = selectedNode ?? activeNodeKey(ws);
+  const node = FLOW_NODES.find((n) => n.key === selected)!;
+  const st = nodeState(selected, ws, bulletCount);
+
+  return (
+    <section className="border-t border-white/10 pt-8">
+      <SectionHeader
+        id="pipeline"
+        n={3}
+        title="Pipeline"
+        actions={
+          <button
+            onClick={() => setFlowOpen(true)}
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
+          >
+            Expand
+          </button>
+        }
+      />
+
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+          <div className="flex items-center gap-2.5">
+            <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 ring-1 ring-inset ring-white/10">
+              Flow
+            </span>
+            <span className="text-[13px] font-medium text-zinc-200">Tailoring pipeline</span>
+          </div>
+          <span className="text-[11px] text-zinc-500">{FLOW_NODES.length} nodes</span>
+        </div>
+        <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="flex justify-center">
+            <FlowDiagram
+              ws={ws}
+              bulletCount={bulletCount}
+              selected={selected}
+              onSelect={selectNode}
+              size="embed"
+            />
+          </div>
+          <div className="rounded-xl border border-white/10 bg-[#0a0f18] p-4">
+            <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+              Node detail
+            </div>
+            <div className="mt-1 text-[14px] font-semibold text-zinc-100">{node.title}</div>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-400">{node.description}</p>
+            <ul className="mt-3 space-y-1 border-l border-white/10 pl-3">
+              {st.lines.map((line, i) => (
+                <li key={i} className="text-[11px] leading-relaxed text-zinc-400">
+                  {line}
+                </li>
+              ))}
+            </ul>
+            {selected === "jev" && ws.jev && (
+              <div className="mt-3 space-y-2">
+                {ws.jev.steps.slice(0, 3).map((s) => (
+                  <StepCandidates key={s.step} step={s} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* -------------------------------------------------------------- Tailored CV */
+
+function CVSection() {
+  const ws = useActiveWorkspace();
+  const [copied, setCopied] = useState(false);
+
+  const markdown = useMemo(() => {
+    if (!ws.cv) return "";
+    const skills = ws.cv.skills.join(" · ");
+    const bullets = ws.cv.bullets
+      .map((b) => `- ${b.text}${b.evidenceId ? `  \`← ${b.evidenceId}\`` : ""}`)
+      .join("\n");
+    const cover = ws.cv.coverNote ? `\n## Cover note\n\n> ${ws.cv.coverNote}` : "";
+    return `# ${ws.cv.headline}\n\n${ws.cv.summary}\n\n**Skills:** ${skills}\n\n## Experience\n\n${bullets}\n${cover}`;
+  }, [ws.cv]);
+
+  return (
+    <section className="border-t border-white/10 pt-8">
+      <SectionHeader
+        id="cv"
+        n={4}
+        title="Tailored CV"
+        actions={
+          <div className="flex items-center gap-2">
+            {ws.usedMock && <Badge tone="amber">mock</Badge>}
+            <button
+              onClick={async () => {
+                await navigator.clipboard.writeText(markdown);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1200);
+              }}
+              disabled={!ws.cv}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+        }
+      />
+      {ws.cv ? (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+          <Markdown>{markdown}</Markdown>
+        </div>
+      ) : (
+        <p className="rounded-2xl border border-dashed border-white/10 px-4 py-10 text-center text-xs text-zinc-500">
+          Nothing generated yet. Run the agent from the Target job section.
+        </p>
+      )}
+    </section>
+  );
+}
+
+/* ----------------------------------------------------------------- Quality */
+
+function QualitySection() {
+  const ws = useActiveWorkspace();
+  const a = ws.assessment;
+
+  return (
+    <section className="border-t border-white/10 pt-8">
+      <SectionHeader
+        id="quality"
+        n={5}
+        title="Quality"
+        actions={a ? <Badge tone={a.overall >= 80 ? "emerald" : a.overall >= 65 ? "sky" : "amber"}>{a.overall}/100</Badge> : null}
+      />
+      {!a ? (
+        <p className="rounded-2xl border border-dashed border-white/10 px-4 py-10 text-center text-xs text-zinc-500">
+          No assessment yet.
+        </p>
+      ) : (
+        <div className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+          <div className="flex items-center gap-5">
+            <ScoreRing value={a.overall} label="/100" />
+            <p className="text-[13px] leading-relaxed text-zinc-300">{a.verdict}</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {a.dimensions.map((d) => (
+              <div key={d.key}>
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-[12px] text-zinc-300">{d.label}</span>
+                  <span className="font-mono text-[11px] text-zinc-400">{d.score}</span>
+                </div>
+                <Meter
+                  value={d.score}
+                  tone={d.score >= 80 ? "emerald" : d.score >= 65 ? "sky" : d.score >= 50 ? "amber" : "rose"}
+                />
+                <p className="mt-1 text-[10px] text-zinc-500">{d.note}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300">
+                Matched ({a.matchedKeywords.length})
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {a.matchedKeywords.map((k, i) => (
+                  <span key={`${k}-${i}`} className="rounded bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300">
+                    {k}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-rose-300">
+                Missing ({a.missingKeywords.length})
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {a.missingKeywords.map((k, i) => (
+                  <span key={`${k}-${i}`} className="rounded bg-rose-400/10 px-1.5 py-0.5 text-[10px] text-rose-300">
+                    {k}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+              Suggested edits
+            </div>
+            <ul className="space-y-1.5">
+              {a.suggestions.map((s, i) => (
+                <li key={i} className="flex gap-2 text-[12px] text-zinc-300">
+                  <span className="text-zinc-600">{i + 1}.</span>
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------- Trace */
+
+const LEVEL_STYLE: Record<string, string> = {
+  info: "text-zinc-400",
+  jev: "text-violet-300",
+  llm: "text-emerald-300",
+  warn: "text-amber-300",
+  error: "text-rose-300",
+};
+
+function TraceSection() {
+  const ws = useActiveWorkspace();
+  return (
+    <section className="border-t border-white/10 pt-8 pb-16">
+      <details className="group rounded-2xl border border-white/10 bg-white/[0.02]">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[12px] text-zinc-600">6</span>
+            <span className="text-[15px] font-semibold text-zinc-200">Agent trace</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-zinc-500">{ws.logs.length} events</span>
+            <span className="text-[11px] text-zinc-500 transition group-open:rotate-180">▾</span>
+          </div>
+        </summary>
+        <div className="border-t border-white/10 px-4 py-3">
+          {ws.logs.length === 0 ? (
+            <p className="py-3 text-center text-xs text-zinc-600">No activity yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {ws.logs.map((l) => (
+                <div key={l.id} className="rounded-lg px-2 py-1.5 hover:bg-white/[0.03]">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-[10px] text-zinc-600">
+                      {new Date(l.at).toLocaleTimeString([], { hour12: false, minute: "2-digit", second: "2-digit" })}
+                    </span>
+                    <span className={`font-mono text-[10px] uppercase ${LEVEL_STYLE[l.level] ?? "text-zinc-400"}`}>
+                      {l.level}
+                    </span>
+                    <span className="text-[11px] text-zinc-300">{l.message}</span>
+                  </div>
+                  {l.detail && (
+                    <p className="ml-14 whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-zinc-600">
+                      {l.detail}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </details>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ Header */
+
+function DocumentHeader() {
+  const ws = useActiveWorkspace();
+  const bullets = useAgentStore((s) => s.bullets);
+  const providers = useAgentStore((s) => s.providers);
+  const selected = bullets.filter((b) => b.selected).length;
+  const tone: Tone =
+    ws.status === "error" ? "rose" : ws.status === "done" ? "emerald" : ws.status === "idle" ? "slate" : "sky";
+
+  return (
+    <header className="pb-2">
+      <h1 className="text-3xl font-semibold tracking-tight text-zinc-100">
+        {ws.job.title || "Untitled job"}
+      </h1>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Badge tone="slate">{ws.job.company || "no company"}</Badge>
+        {ws.job.baseRange && <Badge tone="emerald">{formatComp(ws.job.baseRange)}</Badge>}
+        <Badge tone={tone}>{ws.status}</Badge>
+        <Badge tone="slate">{selected} bullets</Badge>
+        {providers?.jev && <Badge tone="violet">JEV {providers.jev.transport}</Badge>}
+        {providers?.llm && <Badge tone="sky">LLM {providers.llm.provider}</Badge>}
+      </div>
+    </header>
+  );
+}
+
+export function DocumentView() {
+  return (
+    <main className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-3xl px-8 py-10">
+        <DocumentHeader />
+        <ResumeSection />
+        <TargetSection />
+        <PipelineSection />
+        <CVSection />
+        <QualitySection />
+        <TraceSection />
+      </div>
+    </main>
+  );
+}
