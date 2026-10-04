@@ -1,4 +1,5 @@
-import { domainOf, exa } from "./exa";
+import type { AgentRun, CreateAgentRunParams } from "exa-js";
+import { domainOf } from "./exa";
 import type { Contact, ContactRole, Job, Source } from "./types";
 
 const ROLES: ContactRole[] = ["hiring_manager", "recruiter", "executive", "team_member"];
@@ -16,6 +17,8 @@ const contactsSchema = {
           title: { type: "string", description: "Current job title at the company" },
           role: { type: "string", enum: ROLES },
           profile_url: { type: "string", format: "uri", description: "LinkedIn or other public profile URL" },
+          email: { type: "string", format: "email", description: "Work email address" },
+          photo_url: { type: "string", format: "uri", description: "Direct URL of their profile photo" },
           priority: { type: "integer", minimum: 1, maximum: 100, description: "How strongly to contact this person first" },
           reason: { type: "string", description: "One sentence: why this person matters for this application" },
           hook: {
@@ -32,6 +35,7 @@ const contactsSchema = {
 
 const systemPrompt = `You help a job candidate decide who to reach out to about one specific job.
 Only include people who currently work at the hiring company; verify this from their profile or the company site and leave out anyone you cannot verify. Never guess a name or profile URL.
+Include a work email and profile photo URL when you can find them; leave them empty rather than constructing an email from a naming pattern.
 Roles: hiring_manager = likely manager or team lead for this role; recruiter = recruiting, talent or people team; executive = founders and C-level/VP; team_member = people in the same or an adjacent role.
 Order contacts by priority. The likely hiring manager ranks highest, then the recruiter for that area. At companies under ~200 people, founders and CTOs are often directly involved in hiring and should rank high.`;
 
@@ -43,28 +47,51 @@ type AgentContact = {
   priority: number;
   reason: string;
   hook?: string;
+  email?: string;
+  photo_url?: string;
 };
 
+// Profile photo URLs often expire or block hotlinking; only keep ones that actually serve an image.
+async function workingImage(url?: string) {
+  if (!url) return undefined;
+  try {
+    const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(4000) });
+    return res.ok && res.headers.get("content-type")?.startsWith("image/") ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // Finding stakeholders is list-building, which Exa routes to the Agent API rather than /search.
-export async function researchPeople(job: Job): Promise<{ contacts: Contact[]; cost: number }> {
+// Runs execute on Exa's side, so they are created without waiting and looked up
+// again by job id (see people-runs.ts); Exa stores the finished output.
+export function peopleRunParams(job: Job): CreateAgentRunParams {
   const domain = domainOf(job.companyUrl);
   const query = `Find the people at ${job.company}${domain ? ` (${domain})` : ""} that a candidate applying for the "${job.title}" role${
     job.location ? ` in ${job.location}` : ""
   } should contact: the likely hiring manager, recruiters, people on the same team, and leadership if the company is small.`;
 
-  const run = await exa().agent.runs.createAndWait<{ contacts: AgentContact[] }>(
-    {
-      query,
-      systemPrompt,
-      // The listing itself is the row to research; keeps the long description out of `query`.
-      input: { data: [{ ...job, description: job.description?.slice(0, 4000) }] },
-      outputSchema: contactsSchema,
-      effort: "auto",
-      budget: { maxCostDollars: Number(process.env.EXA_AGENT_MAX_COST ?? 2) },
-    },
-    { pollInterval: 4000, timeoutMs: 280_000 },
-  );
+  return {
+    query,
+    systemPrompt,
+    // The listing itself is the row to research; keeps the long description out of
+    // `query`. Its `id` is also how a run is matched back to its job.
+    input: { data: [{ ...job, description: job.description?.slice(0, 4000) }] },
+    outputSchema: contactsSchema,
+    effort: "auto",
+    budget: { maxCostDollars: Number(process.env.EXA_AGENT_MAX_COST ?? 2) },
+    metadata: { jobId: job.id },
+  };
+}
 
+// Job id a run was created for, read back from its stored request.
+export function runJobId(run: AgentRun): string | undefined {
+  const data = (run.request?.input as { data?: { id?: unknown }[] } | undefined)?.data;
+  const id = data?.[0]?.id;
+  return id === undefined ? undefined : String(id);
+}
+
+export async function contactsFromRun(run: AgentRun): Promise<{ contacts: Contact[]; cost: number }> {
   if (run.status !== "completed") {
     throw new Error(`Exa agent run ${run.id} ended with status ${run.status}: ${run.error?.message ?? "no error message"}`);
   }
@@ -81,13 +108,18 @@ export async function researchPeople(job: Job): Promise<{ contacts: Contact[]; c
     sources.set(i, list);
   }
 
-  const contacts = (run.output?.structured?.contacts ?? [])
+  const raw = (run.output?.structured as { contacts?: AgentContact[] } | undefined)?.contacts ?? [];
+  const photos = await Promise.all(raw.map((c) => workingImage(c.photo_url)));
+
+  const contacts = raw
     .map(
       (c, i): Contact => ({
         name: c.name,
         title: c.title,
         role: ROLES.includes(c.role) ? c.role : "team_member",
         profileUrl: c.profile_url,
+        email: c.email || undefined,
+        photoUrl: photos[i],
         priority: Math.max(1, Math.min(100, Math.round(c.priority))),
         reason: c.reason,
         hooks: c.hook,

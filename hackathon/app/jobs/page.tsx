@@ -87,7 +87,7 @@ export default function JobsPage() {
               {selected.description.trim()}
             </div>
 
-            <JobResearch key={selectedId} company={selected.company} />
+            <JobResearch key={selectedId} jobId={Number(selectedId)} company={selected.company} />
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-zinc-500">
