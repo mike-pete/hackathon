@@ -8,7 +8,6 @@ import { extractProfile } from "@/lib/resume-profile";
 import { useActiveWorkspace, useAgentStore } from "@/lib/store";
 import type { JevStep } from "@/lib/types";
 import { FlowDiagram } from "./FlowDiagram";
-import { Markdown } from "./Markdown";
 import { move, ReorderContext, useDragReorder, useReorderContext } from "./Reorder";
 import { Badge, Meter, ScoreRing, type Tone } from "./ui";
 
@@ -33,6 +32,41 @@ type AgentStep = {
   section: string;
   status: "done" | "current" | "upcoming" | "skipped" | "error";
 };
+
+function CollaboratorPresence({ agentActive = false }: { agentActive?: boolean }) {
+  return (
+    <div className="flex items-center" aria-label={agentActive ? "You and CV agent are here; agent is editing" : "You and CV agent are here"}>
+      <span title="You" className="relative z-10 grid size-6 place-items-center rounded-full border-2 border-white bg-zinc-200 text-[8px] font-bold text-zinc-700 dark:border-zinc-950 dark:bg-zinc-700 dark:text-zinc-100">
+        RT
+        <span className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-white bg-emerald-500 dark:border-zinc-950" />
+      </span>
+      <span title="CV agent" className="relative -ml-2 grid size-6 place-items-center rounded-full border-2 border-white bg-blue-600 text-white dark:border-zinc-950">
+        <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M3.5 5.5h9v6h-9zM6 3.5h4M1.8 7.3v2.4M14.2 7.3v2.4M6 8.5h.01M10 8.5h.01M6 10.2h4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className={agentActive ? "absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-white bg-blue-400 animate-pulse motion-reduce:animate-none dark:border-zinc-950" : "absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-white bg-zinc-300 dark:border-zinc-950 dark:bg-zinc-600"} />
+      </span>
+    </div>
+  );
+}
+
+function StreamedText({ text, className = "" }: { text: string; className?: string }) {
+  const parts = text.split(/(\s+)/);
+  return (
+    <span className={className} style={{ whiteSpace: "pre-wrap" }}>
+      {parts.map((part, index) => {
+        if (!part) return null;
+        if (/^\s+$/.test(part)) return part;
+        const stillArriving = index === parts.length - 1 && !/\s$/.test(text);
+        return (
+          <span key={stillArriving ? `pending-${index}` : `word-${index}-${part}`} className={stillArriving ? "" : "cv-stream-token"}>
+            {part}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 function buildAgentSteps(ws: ReturnType<typeof useActiveWorkspace>): AgentStep[] {
   const busy = ["routing", "generating", "assessing"].includes(ws.status);
@@ -109,6 +143,10 @@ function AgentActivity({ ws }: { ws: ReturnType<typeof useActiveWorkspace> }) {
           <div className="flex gap-1" aria-label={`${completed} of ${steps.length} steps complete`}>
             {steps.map((step) => <span key={step.id} className={`h-1 flex-1 rounded-full ${step.status === "done" || step.status === "skipped" ? "bg-emerald-500" : step.status === "current" ? "bg-blue-500 animate-pulse motion-reduce:animate-none" : step.status === "error" ? "bg-rose-500" : "bg-zinc-200 dark:bg-zinc-800"}`} />)}
           </div>
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:ml-0">
+          <span className="hidden text-[10px] text-zinc-400 md:inline">You + agent</span>
+          <CollaboratorPresence agentActive={busy} />
         </div>
       </div>
       <details className="group border-t border-zinc-100 dark:border-zinc-900" open={expanded} onToggle={(event) => {
@@ -604,10 +642,10 @@ function PipelineSection() {
 
 function CVSection() {
   const ws = useActiveWorkspace();
+  const streaming = ws.status === "generating";
   const [copied, setCopied] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
-  const [visibleCharacters, setVisibleCharacters] = useState(0);
 
   const markdown = useMemo(() => {
     if (!ws.cv) return "";
@@ -618,26 +656,6 @@ function CVSection() {
     const cover = ws.cv.coverNote ? `\n## Cover note\n\n> ${ws.cv.coverNote}` : "";
     return `# ${ws.cv.headline}\n\n${ws.cv.summary}\n\n**Skills:** ${skills}\n\n## Experience\n\n${bullets}\n${cover}`;
   }, [ws.cv]);
-
-  useEffect(() => {
-    if (!ws.cv) {
-      setVisibleCharacters(0);
-      return;
-    }
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion) {
-      setVisibleCharacters(markdown.length);
-      return;
-    }
-    setVisibleCharacters(0);
-    let revealed = 0;
-    const timer = window.setInterval(() => {
-      revealed = Math.min(markdown.length, revealed + 18);
-      setVisibleCharacters(revealed);
-      if (revealed >= markdown.length) window.clearInterval(timer);
-    }, 35);
-    return () => window.clearInterval(timer);
-  }, [markdown, ws.cv]);
 
   const downloadPdf = useCallback(async () => {
     const state = useAgentStore.getState();
@@ -688,7 +706,7 @@ function CVSection() {
         actions={
           <div className="flex items-center gap-2">
             {ws.usedMock && <Badge tone="amber">mock</Badge>}
-            <button onClick={downloadPdf} disabled={!ws.cv || pdfBusy} className={`${btnPrimary} disabled:opacity-40`}>
+            <button onClick={downloadPdf} disabled={!ws.cv || streaming || pdfBusy} className={`${btnPrimary} disabled:opacity-40`}>
               {pdfBusy ? "Building PDF…" : "Download PDF"}
             </button>
             <button
@@ -697,7 +715,7 @@ function CVSection() {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1200);
               }}
-              disabled={!ws.cv}
+              disabled={!ws.cv || streaming}
               className={`${btnSecondary} disabled:opacity-40`}
             >
               {copied ? "Copied" : "Copy"}
@@ -705,38 +723,51 @@ function CVSection() {
           </div>
         }
       />
-      {ws.cv ? (
+      {ws.cv || streaming ? (
         <>
           {pdfError && <p role="alert" className="mb-3 text-xs text-rose-700 dark:text-rose-300">{pdfError}</p>}
-          <div className="relative rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-            <Markdown>{markdown.slice(0, visibleCharacters)}{visibleCharacters < markdown.length ? " ▍" : ""}</Markdown>
-            {visibleCharacters < markdown.length && (
-              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[9px] font-medium text-blue-700 shadow-sm dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
-                <span className="relative size-1.5 rounded-full bg-blue-500"><span className="absolute inset-0 rounded-full bg-blue-400 animate-ping motion-reduce:animate-none" /></span>
-                CV agent <span className="opacity-60">is writing</span>
+          <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-center justify-between border-b border-zinc-100 bg-zinc-50/70 px-4 py-2.5 dark:border-zinc-900 dark:bg-zinc-900/40">
+              <div className="flex items-center gap-2">
+                <span className="grid size-6 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
+                  <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M4 2.5h5l3 3v8H4zM9 2.8v3h3M6 8h4M6 10.5h4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </span>
+                <span className="text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Shared draft</span>
+                {streaming && <span className="flex items-center gap-1 text-[9px] text-blue-700 dark:text-blue-300"><span className="relative size-1.5 rounded-full bg-blue-500"><span className="absolute inset-0 rounded-full bg-blue-400 animate-ping motion-reduce:animate-none" /></span>{ws.cv ? "Writing live" : "Thinking"}</span>}
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <span className="hidden text-[9px] text-zinc-400 sm:inline">2 here</span>
+                <CollaboratorPresence agentActive={streaming} />
+              </div>
+            </div>
+            <div className="cv-live-document relative min-h-48 space-y-4 p-6">
+              {ws.cv?.headline && <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100"><StreamedText text={ws.cv.headline} /></h1>}
+              {ws.cv?.summary && <p className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300"><StreamedText text={ws.cv.summary} /></p>}
+              {Boolean(ws.cv?.skills.length) && <p className="text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400"><strong className="text-zinc-800 dark:text-zinc-200">Skills:</strong> <StreamedText text={ws.cv!.skills.join(" · ")} /></p>}
+              {Boolean(ws.cv?.bullets.length) && (
+                <section>
+                  <h2 className="mb-2 border-b border-zinc-200 pb-1 text-[14px] font-semibold text-zinc-900 dark:border-zinc-800 dark:text-zinc-100">Experience</h2>
+                  <ul className="space-y-2 pl-5 text-[13px] leading-relaxed text-zinc-700 marker:text-blue-600 dark:text-zinc-300">
+                    {ws.cv!.bullets.map((bullet) => (
+                      <li key={bullet.id}>
+                        <StreamedText text={bullet.text} />
+                        {bullet.evidenceId && <span className="ml-2 align-middle font-mono text-[9px] text-zinc-400">← {bullet.evidenceId}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+              {ws.cv?.coverNote && <section><h2 className="mb-2 border-b border-zinc-200 pb-1 text-[14px] font-semibold dark:border-zinc-800">Cover note</h2><blockquote className="border-l-2 border-blue-500 pl-3 text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-400"><StreamedText text={ws.cv.coverNote} /></blockquote></section>}
+              {!ws.cv?.headline && !ws.cv?.summary && !ws.cv?.bullets.length && (
+                <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center">
+                  {streaming && <span aria-hidden="true" className="size-3 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600 motion-reduce:animate-none dark:border-blue-950 dark:border-t-blue-400" />}
+                  <p className="text-[12px] text-zinc-500 dark:text-zinc-400">{streaming ? "Thinking through your experience…" : "Your draft will appear here."}</p>
+                  {streaming && <p className="max-w-xs text-[10px] leading-relaxed text-zinc-400 dark:text-zinc-500">The first text appears as soon as the model starts returning draft content.</p>}
+                </div>
+              )}
+            </div>
           </div>
         </>
-      ) : ws.status === "generating" ? (
-        <div className="relative min-h-72 overflow-hidden rounded-2xl border border-blue-200 bg-white p-6 dark:border-blue-900 dark:bg-zinc-950">
-          <div className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-blue-50 dark:bg-blue-950/60"><div className="h-full w-1/3 animate-[loadingbar_1.8s_ease-in-out_infinite] bg-blue-500 motion-reduce:animate-none" /></div>
-          <div className="mb-6 flex items-center gap-2 text-[11px] font-medium text-blue-700 dark:text-blue-300">
-            <span className="relative grid size-5 place-items-center rounded-full bg-blue-50 dark:bg-blue-950"><span className="size-2 rounded-full border-2 border-blue-600 border-r-transparent animate-spin motion-reduce:animate-none" /></span>
-            Agent is drafting your tailored CV
-          </div>
-          <div className="agent-draft-cursor absolute left-8 top-16 z-10 rounded-md bg-blue-600 px-2 py-1 text-[9px] font-semibold text-white shadow-md shadow-blue-900/20">
-            <span className="mr-1">↖</span>CV agent
-          </div>
-          <div className="max-w-xl animate-pulse space-y-4 motion-reduce:animate-none">
-            <div className="h-5 w-2/3 rounded bg-zinc-100 dark:bg-zinc-900" />
-            <div className="h-3 w-full rounded bg-zinc-100 dark:bg-zinc-900" />
-            <div className="h-3 w-5/6 rounded bg-zinc-100 dark:bg-zinc-900" />
-            <div className="flex gap-2 pt-2"><div className="h-5 w-20 rounded-full bg-blue-50 dark:bg-blue-950/70" /><div className="h-5 w-24 rounded-full bg-blue-50 dark:bg-blue-950/70" /><div className="h-5 w-16 rounded-full bg-blue-50 dark:bg-blue-950/70" /></div>
-            <div className="space-y-3 pt-4"><div className="h-3 w-full rounded bg-zinc-100 dark:bg-zinc-900" /><div className="h-3 w-11/12 rounded bg-zinc-100 dark:bg-zinc-900" /><div className="h-3 w-4/5 rounded bg-zinc-100 dark:bg-zinc-900" /></div>
-          </div>
-          <p className="absolute bottom-5 right-6 font-mono text-[10px] text-zinc-400 dark:text-zinc-600">Using selected evidence · {ws.verbatimness}% source wording</p>
-        </div>
       ) : (
         <p className="rounded-2xl border border-dashed border-zinc-300 px-4 py-10 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
           Nothing generated yet. Run the agent from the Target job section.

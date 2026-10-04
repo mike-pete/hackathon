@@ -1,4 +1,5 @@
-import { jsonComplete } from "@/lib/llm";
+import { parsePartialJson } from "ai";
+import { openChatCompletionStream, extractJson } from "@/lib/llm";
 import { mockGenerate } from "@/lib/mock";
 import { generatePrompt } from "@/lib/prompts";
 import { completeResumeEvidence } from "@/lib/resume-selection";
@@ -27,6 +28,36 @@ function isUsableCV(cv: unknown): cv is GeneratedCV {
   );
 }
 
+function toPartialCV(value: unknown): GeneratedCV | null {
+  if (!value || typeof value !== "object") return null;
+  const fields = value as Record<string, unknown>;
+  const bullets = Array.isArray(fields.bullets)
+    ? fields.bullets.flatMap((entry, index) => {
+        if (!entry || typeof entry !== "object") return [];
+        const bullet = entry as Record<string, unknown>;
+        return [{
+          id: typeof bullet.id === "string" ? bullet.id : `stream-${index + 1}`,
+          text: typeof bullet.text === "string" ? bullet.text : "",
+          evidenceId: typeof bullet.evidenceId === "string" ? bullet.evidenceId : null,
+          rationale: typeof bullet.rationale === "string" ? bullet.rationale : "",
+          keywords: Array.isArray(bullet.keywords)
+            ? bullet.keywords.filter((keyword): keyword is string => typeof keyword === "string")
+            : [],
+        }];
+      })
+    : [];
+
+  return {
+    headline: typeof fields.headline === "string" ? fields.headline : "",
+    summary: typeof fields.summary === "string" ? fields.summary : "",
+    skills: Array.isArray(fields.skills)
+      ? fields.skills.filter((skill): skill is string => typeof skill === "string")
+      : [],
+    bullets,
+    coverNote: typeof fields.coverNote === "string" ? fields.coverNote : "",
+  };
+}
+
 function normalize(cv: GeneratedCV, sourceBullets: BigCVBullet[], verbatimness: number): GeneratedCV {
   const sourceById = new Map(sourceBullets.map((bullet) => [bullet.id, bullet.text.trim()]));
   const clampedVerbatimness = Math.max(0, Math.min(100, Math.round(verbatimness)));
@@ -41,20 +72,29 @@ function normalize(cv: GeneratedCV, sourceBullets: BigCVBullet[], verbatimness: 
     (bullet) => bullet.evidenceId && sourceById.has(bullet.evidenceId),
   );
   const verbatimCount = Math.round((eligible.length * clampedVerbatimness) / 100);
-
-  // The prompt tells the model how much wording to retain; this makes the
-  // requested percentage reliable even if the model drifts from the instruction.
   eligible.slice(0, verbatimCount).forEach((bullet) => {
     bullet.text = sourceById.get(bullet.evidenceId!)!;
   });
 
   return {
-    headline: cv.headline || "Tailored CV",
+    headline: cv.headline || "",
     summary: cv.summary || "",
     skills: Array.isArray(cv.skills) ? cv.skills.slice(0, 16) : [],
     bullets: normalizedBullets,
     coverNote: cv.coverNote || "",
   };
+}
+
+function fallbackCV(source: BigCVBullet[], job: JobTarget, intent: string, verbatimness: number) {
+  return normalize(
+    completeResumeEvidence(
+      mockGenerate({ bullets: source, job, intent }),
+      source,
+      job,
+    ),
+    source,
+    verbatimness,
+  );
 }
 
 export async function POST(request: Request) {
@@ -66,44 +106,113 @@ export async function POST(request: Request) {
   }
 
   const source = body.bullets || [];
-  const bullets = source.filter((b) => b.selected);
+  const bullets = source.filter((bullet) => bullet.selected);
   const job = body.job || { title: "", company: "", url: "", description: "" };
+  const intent = body.intent || "";
   const verbatimness = Math.max(0, Math.min(100, Math.round(body.verbatimness ?? 0)));
-  const fallback = () =>
-    completeResumeEvidence(
-      mockGenerate({ bullets: source, job, intent: body.intent || "" }),
-      source,
-      job,
-    );
+  const encoder = new TextEncoder();
+  const streamAbort = new AbortController();
+  const signal = AbortSignal.any([request.signal, streamAbort.signal]);
+  const send = (controller: ReadableStreamDefaultController<Uint8Array>, event: string, data: unknown) => {
+    controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+  };
 
-  try {
-    const { system, user } = generatePrompt({
-      bullets,
-      job,
-      intent: body.intent || "",
-      verbatimness,
-      plan: body.plan || ["cv_generate", "cv_assess"],
-      research: body.research,
-    });
-    const { data, provider, model } = await jsonComplete<GeneratedCV>(
-      system,
-      user,
-      { maxTokens: 4000 },
-    );
-    if (!isUsableCV(data)) throw new Error("model returned an unusable CV shape");
-    const completed = completeResumeEvidence(normalize(data), source, job);
-    return Response.json({
-      cv: normalize(completed, source, verbatimness),
-      provider,
-      model,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return Response.json({
-      cv: normalize(fallback(), source, verbatimness),
-      provider: "mock",
-      model: "deterministic",
-      warning: message,
-    });
-  }
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      // Flush the response immediately so the browser enters live-draft mode
+      // before the model starts returning tokens.
+      controller.enqueue(encoder.encode(": connected\n\n"));
+
+      void (async () => {
+        let upstreamOpened = false;
+        let latestDraft = "";
+        const prompt = generatePrompt({
+          bullets,
+          job,
+          intent,
+          verbatimness,
+          plan: body.plan || ["cv_generate", "cv_assess"],
+          research: body.research,
+        });
+
+        try {
+          const upstream = await openChatCompletionStream(prompt.system, prompt.user, {
+            maxTokens: 4000,
+            signal,
+          });
+          upstreamOpened = true;
+
+          let raw = "";
+          let lastEmit = 0;
+          for await (const chunk of upstream.chunks) {
+            raw += chunk;
+            const now = Date.now();
+            if (now - lastEmit < 70) continue;
+            lastEmit = now;
+
+            const parsed = await parsePartialJson(raw);
+            const partial = toPartialCV(parsed.value);
+            if (!partial || (!partial.headline && !partial.summary && partial.bullets.length === 0)) continue;
+            const cv = normalize(partial, source, verbatimness);
+            const serialized = JSON.stringify(cv);
+            if (serialized === latestDraft) continue;
+            latestDraft = serialized;
+            send(controller, "draft", { cv, provider: upstream.provider, model: upstream.model });
+          }
+
+          const parsed = extractJson(raw);
+          if (!isUsableCV(parsed)) throw new Error("model returned an unusable CV shape");
+          const cv = normalize(
+            completeResumeEvidence(normalize(parsed, source, verbatimness), source, job),
+            source,
+            verbatimness,
+          );
+          send(controller, "complete", { cv, provider: upstream.provider, model: upstream.model });
+        } catch (err) {
+          if (signal.aborted) return;
+          const warning = err instanceof Error ? err.message : String(err);
+          send(controller, "warning", { message: warning });
+          const cv = fallbackCV(source, job, intent, verbatimness);
+
+          // Keep the offline fallback legible in the same live editor by
+          // sending its finished sections as SSE snapshots.
+          const empty: GeneratedCV = { headline: "", summary: "", skills: [], bullets: [], coverNote: "" };
+          const drafts: GeneratedCV[] = [
+            { ...empty, headline: cv.headline },
+            { ...empty, headline: cv.headline, summary: cv.summary },
+            { ...empty, headline: cv.headline, summary: cv.summary, skills: cv.skills },
+            { ...cv, bullets: cv.bullets.slice(0, Math.max(1, Math.floor(cv.bullets.length / 2))) },
+            cv,
+          ];
+          for (const draft of drafts) {
+            const normalized = normalize(draft, source, verbatimness);
+            const serialized = JSON.stringify(normalized);
+            if (serialized === latestDraft) continue;
+            latestDraft = serialized;
+            send(controller, "draft", { cv: normalized, provider: "mock", model: "deterministic" });
+          }
+          send(controller, "complete", {
+            cv,
+            provider: "mock",
+            model: "deterministic",
+            warning: upstreamOpened ? `Stream interrupted: ${warning}` : warning,
+          });
+        } finally {
+          if (!signal.aborted) controller.close();
+        }
+      })();
+    },
+    cancel() {
+      streamAbort.abort();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

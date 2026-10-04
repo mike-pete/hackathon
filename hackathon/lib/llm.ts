@@ -236,6 +236,143 @@ export async function chatComplete(
   throw new Error(`All LLM providers failed. ${errors.join(" | ")}`);
 }
 
+async function* readChatDeltas(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finished = false;
+
+  try {
+    while (!finished) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      const frames = buffer.split(/\r?\n\r?\n/);
+      buffer = frames.pop() ?? "";
+
+      for (const frame of frames) {
+        const data = frame
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trim())
+          .join("\n");
+        if (!data) continue;
+        if (data === "[DONE]") {
+          finished = true;
+          break;
+        }
+
+        try {
+          const chunk = JSON.parse(data) as {
+            choices?: Array<{
+              delta?: {
+                content?: string | Array<{ type?: string; text?: string }>;
+                reasoning_content?: string;
+              };
+            }>;
+          };
+          const delta = chunk.choices?.[0]?.delta;
+          if (typeof delta?.content === "string" && delta.content) {
+            yield delta.content;
+          } else if (Array.isArray(delta?.content)) {
+            const text = delta.content.map((part) => part.text ?? "").join("");
+            if (text) yield text;
+          }
+        } catch {
+          // Ignore non-JSON provider keepalives and continue reading the stream.
+        }
+      }
+
+      if (done) {
+        const finalFrame = buffer.trim();
+        if (finalFrame.startsWith("data:") && finalFrame !== "data: [DONE]") {
+          const data = finalFrame.slice(5).trim();
+          try {
+            const chunk = JSON.parse(data) as {
+              choices?: Array<{ delta?: { content?: string } }>;
+            };
+            const delta = chunk.choices?.[0]?.delta;
+            if (delta?.content) yield delta.content;
+          } catch {
+            // A trailing incomplete event is not useful to the JSON parser.
+          }
+        }
+        finished = true;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+export async function openChatCompletionStream(
+  system: string,
+  user: string,
+  opts: { maxTokens?: number; signal?: AbortSignal } = {},
+): Promise<{ chunks: AsyncIterable<string>; provider: string; model: string }> {
+  const chain = await withLocalFallback(providerChain());
+  if (chain.length === 0) throw new Error("No LLM provider configured");
+
+  const errors: string[] = [];
+  for (const candidate of chain) {
+    const provider = await resolveModel(candidate);
+    if (!provider) {
+      errors.push(`${candidate.id}: unavailable`);
+      continue;
+    }
+
+    const body = {
+      model: provider.model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      temperature: 0.2,
+      max_tokens: opts.maxTokens ?? 4000,
+      stream: true,
+    };
+    const signal = opts.signal
+      ? AbortSignal.any([opts.signal, AbortSignal.timeout(180_000)])
+      : AbortSignal.timeout(180_000);
+    const send = (payload: Record<string, unknown>) =>
+      fetch(`${provider.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${provider.apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal,
+      });
+
+    try {
+      let response = await send(body);
+      if (response.status === 400) {
+        const errText = await response.text().catch(() => "");
+        if (/max_completion_tokens|max_tokens/i.test(errText)) {
+          const { max_tokens, ...rest } = body;
+          response = await send({ ...rest, max_completion_tokens: max_tokens });
+        } else {
+          throw new Error(`${provider.id} 400: ${errText.slice(0, 200)}`);
+        }
+      }
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        throw new Error(`${provider.id} ${response.status}: ${errText.slice(0, 200)}`);
+      }
+      if (!response.body) throw new Error(`${provider.id} returned an empty stream`);
+      return {
+        chunks: readChatDeltas(response.body),
+        provider: provider.id,
+        model: provider.model,
+      };
+    } catch (err) {
+      if (opts.signal?.aborted) throw err;
+      errors.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+  throw new Error(`All LLM providers failed. ${errors.join(" | ")}`);
+}
+
 /** Extract the first balanced JSON object/array from arbitrary text. */
 export function extractJson(text: string): unknown {
   const cleaned = text

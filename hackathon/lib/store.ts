@@ -442,12 +442,71 @@ export const useAgentStore = create<State & Actions>((set, get) => {
             research,
           }),
         });
-        if (!genRes.ok) throw new Error(`Generate failed: ${genRes.status}`);
-        const genData = (await genRes.json()) as {
+        if (!genRes.ok) {
+          const errorBody = await genRes.json().catch(() => null) as { error?: string } | null;
+          throw new Error(errorBody?.error || `Generate failed: ${genRes.status}`);
+        }
+        if (!genRes.body) throw new Error("Generate stream was not available");
+
+        const reader = genRes.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const generation: { result?: {
           cv: GeneratedCV;
           provider: string;
           model: string;
+          warning?: string;
+        } } = {};
+
+        const consumeEvent = (frame: string) => {
+          let event = "message";
+          const data: string[] = [];
+          for (const line of frame.split(/\r?\n/)) {
+            if (line.startsWith("event:")) event = line.slice(6).trim();
+            else if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
+          }
+          if (data.length === 0) return;
+
+          const payload = JSON.parse(data.join("\n")) as {
+            cv?: GeneratedCV;
+            provider?: string;
+            model?: string;
+            message?: string;
+            warning?: string;
+          };
+
+          if (event === "draft" && payload.cv) {
+            patch(id, {
+              cv: payload.cv,
+              usedMock: payload.provider === "mock",
+            });
+          } else if (event === "warning" && payload.message) {
+            appendLog(id, "warn", "Using the offline CV fallback", payload.message);
+          } else if (event === "complete" && payload.cv) {
+            generation.result = {
+              cv: payload.cv,
+              provider: payload.provider || "unknown",
+              model: payload.model || "unknown",
+              warning: payload.warning,
+            };
+          } else if (event === "error") {
+            throw new Error(payload.message || "CV generation stream failed");
+          }
         };
+
+        while (true) {
+          const { value, done } = await reader.read();
+          buffer += decoder.decode(value, { stream: !done });
+          const frames = buffer.split(/\r?\n\r?\n/);
+          buffer = frames.pop() ?? "";
+          for (const frame of frames) consumeEvent(frame);
+          if (done) break;
+        }
+        if (buffer.trim()) consumeEvent(buffer);
+        reader.releaseLock();
+        const genData = generation.result;
+        if (!genData) throw new Error("CV generation stream ended before the draft was complete");
+
         patch(id, { cv: genData.cv, usedMock: genData.provider === "mock" });
         appendLog(id, "llm", `Tailored CV generated via ${genData.provider}/${genData.model}`);
 
