@@ -1,7 +1,15 @@
 "use client";
 
+import jobs from "@/app/jobs";
 import { useAgentStore } from "@/lib/store";
 import { Badge, Card } from "./ui";
+
+function formatComp([min, max]: [number, number]) {
+  const k = (n: number) => `$${Math.round(n / 1000)}K`;
+  return `${k(min)} - ${k(max)}`;
+}
+
+const boardJobs = Object.entries(jobs).map(([id, job]) => ({ id, ...job }));
 
 export function JobPanel() {
   const job = useAgentStore((s) => s.job);
@@ -21,20 +29,55 @@ export function JobPanel() {
     <Card
       title="Target job"
       subtitle="What are we aiming at?"
-      right={job.url ? <Badge tone="sky">link set</Badge> : null}
+      right={
+        job.baseRange ? (
+          <Badge tone="emerald">{formatComp(job.baseRange)}</Badge>
+        ) : job.url ? (
+          <Badge tone="sky">link set</Badge>
+        ) : null
+      }
       className="min-h-[20rem]"
       bodyClassName="flex flex-col"
     >
+      <div className="px-4 pt-3">
+        <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+          From the job board
+        </label>
+        <select
+          value={job.sourceId ?? ""}
+          onChange={(e) => {
+            const picked = boardJobs.find((j) => j.id === e.target.value);
+            if (picked) {
+              setJob({
+                title: picked.title,
+                company: picked.company,
+                description: picked.description,
+                url: "",
+                sourceId: picked.id,
+                baseRange: picked.baseRange,
+              });
+            }
+          }}
+          className={`${field} appearance-none`}
+        >
+          <option value="">Pick a job from the team board…</option>
+          {boardJobs.map((j) => (
+            <option key={j.id} value={j.id}>
+              {j.title} · {j.company} · {formatComp(j.baseRange)}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="grid grid-cols-2 gap-2 px-4 pt-3">
         <input
           value={job.title}
-          onChange={(e) => setJob({ title: e.target.value })}
+          onChange={(e) => setJob({ title: e.target.value, sourceId: undefined, baseRange: undefined })}
           placeholder="Job title"
           className={field}
         />
         <input
           value={job.company}
-          onChange={(e) => setJob({ company: e.target.value })}
+          onChange={(e) => setJob({ company: e.target.value, sourceId: undefined, baseRange: undefined })}
           placeholder="Company"
           className={field}
         />

@@ -19,6 +19,10 @@ export type JobTarget = {
   company: string;
   url: string;
   description: string;
+  /** Set when the job came from the shared job board (app/jobs.ts). */
+  sourceId?: string;
+  /** Base comp range in USD, when the job board provides one. */
+  baseRange?: [number, number];
 };
 
 export type PipelineStatus =

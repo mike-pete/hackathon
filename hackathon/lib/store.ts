@@ -29,10 +29,13 @@ type State = {
   providers: ProviderStatus | null;
   usedMock: boolean;
   error: string | null;
+  /** Which example is loaded, for the UI badge. */
+  sampleLabel: string | null;
 };
 
 type Actions = {
   hydrateSample: () => void;
+  loadResume: () => void;
   clearAll: () => void;
   setRawCV: (text: string) => void;
   parseFromRaw: () => void;
@@ -66,6 +69,7 @@ export const useAgentStore = create<State & Actions>((set, get) => ({
   providers: null,
   usedMock: false,
   error: null,
+  sampleLabel: null,
 
   hydrateSample: () => {
     import("./sample").then(({ SAMPLE_BIG_CV, SAMPLE_JOB }) => {
@@ -83,6 +87,26 @@ export const useAgentStore = create<State & Actions>((set, get) => ({
         logs: [],
         usedMock: false,
         error: null,
+        sampleLabel: "Payments sample",
+      });
+    });
+  },
+
+  loadResume: () => {
+    import("./rahul-resume").then(({ RAHUL_RESUME, RAHUL_DEFAULT_INTENT }) => {
+      set({
+        rawCV: RAHUL_RESUME,
+        bullets: parseBigCV(RAHUL_RESUME),
+        intent: RAHUL_DEFAULT_INTENT,
+        jev: null,
+        cv: null,
+        assessment: null,
+        research: null,
+        status: "idle",
+        logs: [],
+        usedMock: false,
+        error: null,
+        sampleLabel: "Rahul Tuladhar (real resume)",
       });
     });
   },
@@ -102,6 +126,7 @@ export const useAgentStore = create<State & Actions>((set, get) => ({
       logs: [],
       usedMock: false,
       error: null,
+      sampleLabel: null,
     }),
 
   setRawCV: (text) => set({ rawCV: text }),

@@ -91,7 +91,27 @@ npm run dev
 Open http://localhost:3000. The app seeds itself with a sample Big CV and job on
 first load.
 
+- **Sample CV** loads the fictional payments persona.
+- **My resume** loads Rahul's real resume (`lib/rahul-resume.ts`, from
+  `~/Documents/Personal Mac Documents/Rahul_Tuladhar_Resume.pdf`) as the Big CV.
+- **From the job board** in the Target job panel pulls jobs from Mike's shared
+  `app/jobs.ts`, so the CV agent and the `/jobs` board use one source of truth.
+
 > If port 3000 is taken (e.g. by another local service), run `PORT=3100 npm run dev`.
+
+## End-to-end walkthrough
+
+1. Open http://localhost:3000.
+2. Click **My resume** to load the real Big CV (25 parsed bullets).
+3. In **Target job → From the job board**, pick
+   "Frontend Software Engineer, Codex App · OpenAI".
+4. Click **Run agent**.
+5. Watch the middle column: JevRouter returns a plan (capabilities ranked with
+   probabilities, risk and confirmation gates), then the trace shows each
+   capability executing.
+6. Read the right column: the tailored CV with `← evidenceId` traces, then the
+   **Quality** tab for the six-dimension score, keyword coverage and edits.
+
 
 ## Environment
 

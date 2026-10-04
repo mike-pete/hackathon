@@ -8,6 +8,8 @@ export function TopBar() {
   const providers = useAgentStore((s) => s.providers);
   const refreshProviders = useAgentStore((s) => s.refreshProviders);
   const hydrateSample = useAgentStore((s) => s.hydrateSample);
+  const loadResume = useAgentStore((s) => s.loadResume);
+  const sampleLabel = useAgentStore((s) => s.sampleLabel);
   const clearAll = useAgentStore((s) => s.clearAll);
   const status = useAgentStore((s) => s.status);
 
@@ -61,12 +63,30 @@ export function TopBar() {
             {status}
           </Badge>
         )}
+        {sampleLabel && (
+          <Badge tone="slate">
+            <Dot tone="slate" />
+            {sampleLabel}
+          </Badge>
+        )}
         <button
           onClick={hydrateSample}
           className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
         >
-          Load sample
+          Sample CV
         </button>
+        <button
+          onClick={loadResume}
+          className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:bg-emerald-400/20"
+        >
+          My resume
+        </button>
+        <a
+          href="/jobs"
+          className="rounded-lg border border-white/10 bg-transparent px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200"
+        >
+          Job board
+        </a>
         <button
           onClick={clearAll}
           className="rounded-lg border border-white/10 bg-transparent px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200"

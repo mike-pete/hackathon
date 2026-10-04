@@ -60,8 +60,8 @@ export function parseBigCV(raw: string): BigCVBullet[] {
 
   const bullets: BigCVBullet[] = [];
   for (const line of lines) {
-    const isBullet = /^[-*•]/.test(line);
-    const body = line.replace(/^[-*•]\s*/, "").trim();
+    const isBullet = /^[-*•●]/.test(line);
+    const body = line.replace(/^[-*•●]\s*/, "").trim();
     // Skip short headers / non-sentences.
     if (!isBullet) continue;
     if (body.length < 24) continue;
