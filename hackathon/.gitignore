@@ -34,12 +34,13 @@ yarn-error.log*
 .env*
 !.env.example
 
+# jevrouter local decision receipts
+.jevrouter/
+.playwright-mcp/
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# research cache
-/.cache/

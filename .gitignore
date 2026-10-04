@@ -1,0 +1,6 @@
+# workspace-local, not part of the project
+.context/
+.jevrouter/
+.playwright-mcp/
+.DS_Store
+node_modules/
