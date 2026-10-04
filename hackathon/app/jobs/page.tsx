@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import jobs from "../jobs";
 import JobResearch from "../JobResearch";
+import JobRulesEval from "../JobRulesEval";
 import JobSummary from "../JobSummary";
 
 function formatComp([min, max]: [number, number]) {
@@ -20,7 +21,7 @@ export default function JobsPage() {
   return (
     <Group
       orientation="horizontal"
-      className="flex-1 bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100"
+      className="min-h-0 flex-1 bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100"
     >
       {/* Sidebar */}
       <Panel
@@ -82,6 +83,8 @@ export default function JobsPage() {
               {formatComp(selected.baseRange)} base
             </p>
             <JobSummary key={`summary-${selectedId}`} jobId={Number(selectedId)} />
+
+            <JobRulesEval key={`rules-${selectedId}`} jobId={Number(selectedId)} />
 
             <JobResearch key={selectedId} jobId={Number(selectedId)} company={selected.company} />
           </div>
