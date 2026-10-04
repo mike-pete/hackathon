@@ -91,11 +91,9 @@ export default function JobRulesEval({ jobId }: { jobId: number }) {
   const hasRules = activeRules.length > 0;
 
   return (
-    <section className="mt-8 border-t border-zinc-200 pt-6 dark:border-zinc-800">
-      <h3 className="text-lg font-semibold">How this job fits your rules</h3>
-
+    <section className="mt-6">
       {!hasRules ? (
-        <p className="mt-3 text-sm text-zinc-500">
+        <p className="text-sm text-zinc-500">
           No rules yet.{" "}
           <Link
             href="/rules"
@@ -106,11 +104,11 @@ export default function JobRulesEval({ jobId }: { jobId: number }) {
           to see how this job measures up.
         </p>
       ) : error ? (
-        <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">{error}</p>
+        <p className="text-sm text-amber-600 dark:text-amber-400">{error}</p>
       ) : loading && !results?.length ? (
-        <p className="mt-3 text-sm text-zinc-500">Evaluating rules…</p>
+        <p className="text-sm text-zinc-500">Evaluating rules…</p>
       ) : (
-        <ul className="mt-4 flex flex-wrap gap-3">
+        <ul className="flex flex-wrap gap-3">
           {results?.map((result) => {
             const pct = Math.round(result.probability * 100);
             const tone = fitTone(pct);
