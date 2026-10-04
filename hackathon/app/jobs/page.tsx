@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import jobs from "../jobs";
 import JobResearch from "../JobResearch";
 import JobRulesEval from "../JobRulesEval";
 import JobSummary from "../JobSummary";
+
+// PDF rendering is browser-only, so load the resume embed client-side.
+const ResumeEmbed = dynamic(() => import("../ResumeEmbed"), { ssr: false });
 
 function formatComp([min, max]: [number, number]) {
   const k = (n: number) => `$${Math.round(n / 1000)}K`;
@@ -77,6 +81,10 @@ export default function JobsPage() {
             <JobSummary key={`summary-${selectedId}`} jobId={Number(selectedId)} />
 
             <JobRulesEval key={`rules-${selectedId}`} jobId={Number(selectedId)} />
+
+            <div className="mt-6">
+              <ResumeEmbed />
+            </div>
 
             <JobResearch key={selectedId} jobId={Number(selectedId)} company={selected.company} />
           </div>
