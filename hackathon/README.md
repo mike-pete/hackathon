@@ -21,6 +21,8 @@ This is the CV + Job + JEV slice of the **res-you-may-agents** team's build for 
    `← evidenceId` traces back to the Big CV, and a cover note.
 5. **Quality assessment.** Six dimensions scored 0–100, matched/missing keyword
    coverage, and concrete suggested edits.
+6. **PDF export.** A polished, ATS-friendly one-page resume rendered with
+   `@react-pdf/renderer` (name and contact pulled from the Big CV).
 
 ## Architecture
 
@@ -40,11 +42,13 @@ components/
   DocumentView.tsx         the markdown document: CV, job, pipeline, quality, trace
   FlowDiagram.tsx          the pipeline node graph (embedded + full)
   FlowOverlay.tsx          expanded canvas with the right-hand tour stepper
+  ResumePdf.tsx            the PDF resume (@react-pdf/renderer)
   Markdown.tsx             react-markdown renderer
 lib/
   jev.ts                   JevRouter client + decision normalisation
   capabilities.ts          the capability manifests handed to JevRouter
   pipeline.ts              flow nodes + live per-node state
+  resume-profile.ts        name/contact extraction for the PDF header
   llm.ts                   OpenAI-compatible failover chain
   prompts.ts               generation + assessment prompts (strict JSON)
   mock.ts                  deterministic offline fallback
@@ -105,6 +109,10 @@ configured and reachable provider wins, and it falls through on any error:
 
 A local model is a convenience, not a requirement. With a gateway key set, the
 app runs with no local inference at all.
+
+> Local auto-detection skips embedding models and any "abliterated" variant. Dense
+> local models are slow, so a hosted gateway (Neon or Vercel) is recommended for
+> a live demo.
 
 ## Run it
 

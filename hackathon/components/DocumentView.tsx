@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { createElement, useMemo, useRef, useState } from "react";
 import jobs from "@/app/jobs";
 import { CAPABILITY_BY_ID } from "@/lib/capabilities";
 import { activeNodeKey, FLOW_NODES, nodeState } from "@/lib/pipeline";
+import { extractProfile } from "@/lib/resume-profile";
 import { useActiveWorkspace, useAgentStore } from "@/lib/store";
 import type { JevStep } from "@/lib/types";
 import { FlowDiagram } from "./FlowDiagram";
@@ -446,6 +447,7 @@ function PipelineSection() {
 function CVSection() {
   const ws = useActiveWorkspace();
   const [copied, setCopied] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const markdown = useMemo(() => {
     if (!ws.cv) return "";
@@ -457,6 +459,32 @@ function CVSection() {
     return `# ${ws.cv.headline}\n\n${ws.cv.summary}\n\n**Skills:** ${skills}\n\n## Experience\n\n${bullets}\n${cover}`;
   }, [ws.cv]);
 
+  const downloadPdf = async () => {
+    if (!ws.cv) return;
+    setPdfBusy(true);
+    try {
+      const [{ pdf }, { ResumePdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("./ResumePdf"),
+      ]);
+      const profile = extractProfile(useAgentStore.getState().rawCV);
+      const element = createElement(ResumePdf, { profile, cv: ws.cv, job: ws.job });
+      const blob = await pdf(
+        element as unknown as Parameters<typeof pdf>[0],
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${profile.name.replace(/\s+/g, "_")}_Resume.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF export failed", err);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
     <section className="border-t border-zinc-200 pt-8 dark:border-zinc-800">
       <SectionHeader
@@ -466,6 +494,9 @@ function CVSection() {
         actions={
           <div className="flex items-center gap-2">
             {ws.usedMock && <Badge tone="amber">mock</Badge>}
+            <button onClick={downloadPdf} disabled={!ws.cv || pdfBusy} className={`${btnPrimary} disabled:opacity-40`}>
+              {pdfBusy ? "Building PDF…" : "Download PDF"}
+            </button>
             <button
               onClick={async () => {
                 await navigator.clipboard.writeText(markdown);
